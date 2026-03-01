@@ -162,6 +162,7 @@
      starship
      tailscale
      git
+	 gh
      qbittorrent
      ntfs3g
      exfat
