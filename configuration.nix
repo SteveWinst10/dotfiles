@@ -177,6 +177,7 @@
 	 mpv
 	 superTuxKart
 	 obs-studio
+	 libv4l
 	 #(hyprland.overrideAttrs (oldAttrs: {version = "0.49"; src = fetchurl {
 	 #    url = "https://github.com/hyprwm/Hyprland/releases/download/v0.49.0/source-v0.49.0.tar.gz";
 	 #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
