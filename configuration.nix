@@ -97,6 +97,7 @@
   users.defaultUserShell = pkgs.zsh;
   environment.sessionVariables = {
     AQ_NO_ATOMIC = "1";
+    WLR_DRM_DEVICES= "/dev/dri/card1";
   };
    #environment.etc."ghidra/support/launch.properties" = {
    #   source = ./launch.properties;
@@ -183,7 +184,7 @@
 	 #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
 	 #(aquamarine.overrideAttrs (oldAttrs: {version = "0.9.1-1"; src = fetchurl {
 	 #	url = "https://github.com/hyprwm/aquamarine/archive/refs/tags/v0.9.1.tar.gz";
-	 #	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
+		# 	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
 	 #};}))
 	 hyprland
 	 btop
@@ -199,10 +200,12 @@
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
 	 chromium
+	 floorp-bin
 	 niri
 	 zulu17
 	 python313
 	 powertop
+	 tlp
 	 blueman
 	 rar
 	 #steam
@@ -263,7 +266,7 @@
   services = {
       asusd = {
         enable = true;
-        enableUserService = true;
+        #enableUserService = true;
       };
   };
 
@@ -409,4 +412,20 @@ hardware.bluetooth = {
    		nvidiaBusId = "PCI:100:0:0";
                    # amdgpuBusId = "PCI:54:0:0"; For AMD GPU
    	};
+   	boot.extraModprobeConfig = ''
+   	    blacklist nouveau
+   	    options nouveau modeset=0
+   	  '';
+   	  
+   	  services.udev.extraRules = ''
+   	    # Remove NVIDIA USB xHCI Host Controller devices, if present
+   	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
+   	    # Remove NVIDIA USB Type-C UCSI devices, if present
+   	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
+   	    # Remove NVIDIA Audio devices, if present
+   	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
+   	    # Remove NVIDIA VGA/3D controller devices
+   	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
+   	  '';
+   	  boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
 }
