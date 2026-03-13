@@ -122,6 +122,7 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+	 seatd
   	 neovim
   	 gnome-network-displays
 	 usbutils
@@ -145,7 +146,9 @@
 	 sway
 	 swaybg
 	 i3
+	 i3status
 	 waybar
+	 ashell
 	 spotdl
 	 platformio
 	 platformio-core
@@ -199,14 +202,20 @@
 	 jetbrains.pycharm
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
+	 nerd-fonts._0xproto 
 	 chromium
 	 floorp-bin
 	 niri
+	 wofi
+	 xdg-desktop-portal-gtk
+     xdg-desktop-portal-gnome
+     gnome-keyring
 	 zulu17
 	 python313
 	 powertop
 	 tlp
 	 blueman
+	 bluez
 	 rar
 	 #steam
 	 openssl
@@ -214,6 +223,7 @@
 	 sshuttle
 	 protonvpn-gui
 	 ripgrep
+	 fzy
 	 scrcpy
 	 python313Packages.pygame
 	 python313Packages.pipx
