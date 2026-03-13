@@ -190,6 +190,8 @@
 		# 	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
 	 #};}))
 	 hyprland
+	 hypridle
+	 hyprpaper 
 	 btop
 	 p7zip
 	 peazip
@@ -229,6 +231,7 @@
 	 python313Packages.pipx
 	 python313Packages.pip
 	 libsecret
+	 lact
   ];
 
   # Some programs need SUID wrappers, can be configured further or are
@@ -382,7 +385,7 @@ hardware.bluetooth = {
    hardware.graphics = {
      enable = true;
    };
- 
+   services.lact.enable = true;
    # Load nvidia driver for Xorg and Wayland
    services.xserver.videoDrivers = ["nvidia"];
    hardware.nvidia = {
