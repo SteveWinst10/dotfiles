@@ -125,6 +125,8 @@
 	 seatd
   	 neovim
   	 gnome-network-displays
+  	 dnsmasq
+  	 nmap
 	 usbutils
 	 unzip
 	 gimp
@@ -181,7 +183,10 @@
 	 mpv
 	 superTuxKart
 	 obs-studio
+	 alsa-tools
 	 libv4l
+	 evtest
+	 wev
 	 #(hyprland.overrideAttrs (oldAttrs: {version = "0.49"; src = fetchurl {
 	 #    url = "https://github.com/hyprwm/Hyprland/releases/download/v0.49.0/source-v0.49.0.tar.gz";
 	 #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
@@ -191,7 +196,9 @@
 	 #};}))
 	 hyprland
 	 hypridle
-	 hyprpaper 
+	 hyprpaper
+	 hyprlock
+	 hyprcursor 
 	 btop
 	 p7zip
 	 peazip
@@ -204,6 +211,7 @@
 	 jetbrains.pycharm
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
+	 gemini-cli-bin
 	 nerd-fonts._0xproto 
 	 chromium
 	 floorp-bin
