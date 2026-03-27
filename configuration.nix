@@ -127,6 +127,10 @@
   	 gnome-network-displays
   	 dnsmasq
   	 nmap
+  	 cloudflare-warp
+  	 i2p
+  	 i2pd
+  	 i2pd-tools
 	 usbutils
 	 unzip
 	 gimp
@@ -137,6 +141,7 @@
 	 perf
 	 valgrind
 	 python313Packages.pygame
+	 python313Packages.flask
 	 localsend
 	 nps
 	 nh
@@ -181,7 +186,7 @@
 	 eza
 	 vlc
 	 mpv
-	 superTuxKart
+	 supertuxkart
 	 obs-studio
 	 alsa-tools
 	 libv4l
