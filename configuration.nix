@@ -218,16 +218,22 @@
 	 lshw	
 	 parsec-bin
 	 openssh_hpn
+	 
 	 jetbrains-toolbox
 	 jetbrains.clion
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
 	 nodejs_24
+
 	 gemini-cli-bin
 	 opencode
+	 ollama-cuda
+
 	 nerd-fonts._0xproto 
+
 	 chromium
 	 floorp-bin
+
 	 niri
 	 wofi
 	 xdg-desktop-portal-gtk
@@ -450,7 +456,7 @@ hardware.bluetooth = {
    		nvidiaBusId = "PCI:100:0:0";
                    # amdgpuBusId = "PCI:54:0:0"; For AMD GPU
    	};
-   	boot.extraModprobeConfig = ''
+   	/*boot.extraModprobeConfig = ''
    	    blacklist nouveau
    	    options nouveau modeset=0
    	  '';
@@ -466,4 +472,5 @@ hardware.bluetooth = {
    	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
    	  '';
    	  boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
+	*/
 }
