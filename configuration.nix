@@ -10,6 +10,13 @@
       ./hardware-configuration.nix
     ];
 
+  nix.optimise.automatic = true;
+  nix.gc = {
+    automatic = true;
+    dates = "weekly";
+    options = "--delete-older-than 7d";
+  };
+
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -29,7 +36,6 @@
 
   # Set your time zone.
   time.timeZone = "Asia/Kolkata";
-
   # Select internationalisation properties.
   i18n.defaultLocale = "en_IN";
 
@@ -127,13 +133,13 @@
   	 gnome-network-displays
   	 dnsmasq
   	 nmap
-  	 cloudflare-warp
+  	 wireshark
   	 i2p
   	 i2pd
-  	 i2pd-tools
 	 usbutils
 	 unzip
 	 gimp
+	 imv
 	 kitty
 	 gcc
 	 gdb
@@ -147,7 +153,6 @@
 	 nh
 	 heroic
 	 vulkan-tools
-	 steam
 	 rpcs3
 	 protontricks
 	 sway
@@ -164,6 +169,7 @@
 	 yt-dlp
      wget
      micro
+     notepad-next
      zoxide
      fastfetch
      (ghidra.overrideAttrs (oldAttrs: {
@@ -200,6 +206,7 @@
 		# 	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
 	 #};}))
 	 hyprland
+	 hyprpanel
 	 hypridle
 	 hyprpaper
 	 hyprlock
@@ -213,10 +220,11 @@
 	 openssh_hpn
 	 jetbrains-toolbox
 	 jetbrains.clion
-	 jetbrains.pycharm
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
+	 nodejs_24
 	 gemini-cli-bin
+	 opencode
 	 nerd-fonts._0xproto 
 	 chromium
 	 floorp-bin
@@ -227,16 +235,19 @@
      gnome-keyring
 	 zulu17
 	 python313
+	 uv
 	 powertop
 	 tlp
 	 blueman
 	 bluez
 	 rar
-	 #steam
+	 steam
+	 wine-wayland
 	 openssl
 	 qdirstat
 	 sshuttle
 	 protonvpn-gui
+	 proton-vpn-cli
 	 ripgrep
 	 fzy
 	 scrcpy
@@ -277,7 +288,8 @@
   # Enable the gnome-keyring secrets vault. 
     # Will be exposed through DBus to programs willing to store secrets.
     services.gnome.gnome-keyring.enable = true;
-  
+   programs.direnv.enable = true;
+   programs.nix-ld.enable = true;
     # enable Sway window manager
     programs.sway = {
       enable = true;
@@ -299,7 +311,7 @@
 
  services.udev.packages = with pkgs; [ platformio-core.udev ];
  programs.steam = {
-    enable = true;
+    enable = false;
     remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
     dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
     localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
@@ -338,9 +350,9 @@
 	cd = "z";
 	cat = "bat";
 	df = "duf";
-	nixcedit = "sudo micro /etc/nixos/configuration.nix";
-	nixhedit = "micro /etc/nixos/hardware-configuration.nix";   
-    update = "nixos-rebuild switch";
+	nixcedit = "micro ~/.dotfiles/configuration.nix";
+	nixhedit = "micro ~/.dotfiles/hardware-configuration.nix";   
+    update = "sudo nixos-rebuild switch --flake ~/.dotfiles/";
   };
  };
  programs.starship.enable = true;
