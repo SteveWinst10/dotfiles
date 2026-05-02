@@ -130,9 +130,11 @@
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
 	 seatd
   	 neovim
+  	 onlyoffice-desktopeditors
   	 gnome-network-displays
   	 dnsmasq
   	 nmap
+  	 sniffnet
   	 wireshark
   	 i2p
   	 i2pd
@@ -224,11 +226,13 @@
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
 	 nodejs_24
+	 cargo
 
 	 gemini-cli-bin
 	 opencode
 	 ollama-cuda
-
+	 aichat
+	 open-webui
 	 nerd-fonts._0xproto 
 
 	 chromium
@@ -281,8 +285,17 @@
   # networking.firewall.allowedTCPPorts = [ ... ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
-  # networking.firewall.enable = false;
-
+  # networking.firewall.enable = false; 
+  networking.firewall = {
+    # This makes the hotspot interface a "free-fire" zone for local data
+    trustedInterfaces = [ "wlan0" ]; 
+    
+    # Some LAN games specifically need these for discovery
+    allowedUDPPorts = [ 5353 ]; # For mDNS (finding each other)
+  };
+  boot.kernel.sysctl = {
+      "net.ipv4.ip_forward" = 1;
+    };
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
   # on your system were taken. It‘s perfectly fine and recommended to leave
@@ -317,7 +330,7 @@
 
  services.udev.packages = with pkgs; [ platformio-core.udev ];
  programs.steam = {
-    enable = false;
+    enable = true;
     remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
     dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
     localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
@@ -456,7 +469,7 @@ hardware.bluetooth = {
    		nvidiaBusId = "PCI:100:0:0";
                    # amdgpuBusId = "PCI:54:0:0"; For AMD GPU
    	};
-   	/*boot.extraModprobeConfig = ''
+   /*	boot.extraModprobeConfig = ''
    	    blacklist nouveau
    	    options nouveau modeset=0
    	  '';
@@ -472,5 +485,5 @@ hardware.bluetooth = {
    	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
    	  '';
    	  boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
-	*/
+*/	
 }
