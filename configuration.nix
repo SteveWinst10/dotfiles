@@ -16,6 +16,12 @@
     dates = "weekly";
     options = "--delete-older-than 7d";
   };
+  nix.settings = {
+    # Enable the official NixOS binary cache
+    substituters = [ "https://cache.nixos.org" ];
+	    
+  };
+  
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -139,6 +145,7 @@
   	 i2p
   	 i2pd
 	 usbutils
+	 wl-clipboard
 	 unzip
 	 gimp
 	 imv
