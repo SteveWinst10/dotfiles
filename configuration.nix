@@ -16,13 +16,20 @@
     dates = "weekly";
     options = "--delete-older-than 7d";
   };
-  nix.settings = {
-    # Enable the official NixOS binary cache
-    substituters = [ "https://cache.nixos.org" ];
-	    
-  };
   
 
+  zramSwap.enable = true;
+  systemd.oomd.enable = true;
+  boot.kernelParams = [
+      "zswap.enabled=1" # enables zswap
+      "zswap.compressor=lz4" # compression algorithm
+      "zswap.max_pool_percent=20" # maximum percentage of RAM that zswap is allowed to use
+      "zswap.shrinker_enabled=1" # whether to shrink the pool proactively on high memory pressure
+    ];
+  swapDevices = [{
+    device = "/var/lib/swapfile";
+    size = 16*1024; # 16 GiB
+  }];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -43,20 +50,23 @@
   # Set your time zone.
   time.timeZone = "Asia/Kolkata";
   # Select internationalisation properties.
-  i18n.defaultLocale = "en_IN";
-
-  i18n.extraLocaleSettings = {
-    LC_ADDRESS = "en_IN";
-    LC_IDENTIFICATION = "en_IN";
-    LC_MEASUREMENT = "en_IN";
-    LC_MONETARY = "en_IN";
-    LC_NAME = "en_IN";
-    LC_NUMERIC = "en_IN";
-    LC_PAPER = "en_IN";
-    LC_TELEPHONE = "en_IN";
-    LC_TIME = "en_IN";
-  };
-
+  # Select internationalisation properties.
+    i18n.defaultLocale = "en_IN.UTF-8";
+    
+    # NixOS expects the specific glibc format: "locale/encoding"
+    # Note: en_IN does not use a .UTF-8 suffix in its name here
+  
+    i18n.extraLocaleSettings = {
+      LC_ADDRESS = "en_IN";
+      LC_IDENTIFICATION = "en_IN";
+      LC_MEASUREMENT = "en_IN";
+      LC_MONETARY = "en_IN";
+      LC_NAME = "en_IN";
+      LC_NUMERIC = "en_IN";
+      LC_PAPER = "en_IN";
+      LC_TELEPHONE = "en_IN";
+      LC_TIME = "en_IN";
+    };
   # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
@@ -134,9 +144,9 @@
   # $ nix search wget
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-	 seatd
   	 neovim
   	 onlyoffice-desktopeditors
+
   	 gnome-network-displays
   	 dnsmasq
   	 nmap
@@ -147,7 +157,6 @@
 	 usbutils
 	 wl-clipboard
 	 unzip
-	 gimp
 	 imv
 	 kitty
 	 gcc
@@ -158,8 +167,17 @@
 	 python313Packages.pygame
 	 python313Packages.flask
 	 localsend
+
 	 nps
 	 nh
+	 comma
+	 nix-index
+	 nurl
+	 nix-init
+	 statix
+	 nix-direnv
+	 flake-parts
+	 
 	 heroic
 	 vulkan-tools
 	 rpcs3
@@ -197,6 +215,7 @@
      btrfs-assistant
 	 zsh
 	 duf
+	 ncdu
 	 bat
 	 eza
 	 vlc
@@ -228,7 +247,6 @@
 	 parsec-bin
 	 openssh_hpn
 	 
-	 jetbrains-toolbox
 	 jetbrains.clion
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
@@ -240,6 +258,7 @@
 	 ollama-cuda
 	 aichat
 	 open-webui
+
 	 nerd-fonts._0xproto 
 
 	 chromium
@@ -258,12 +277,11 @@
 	 blueman
 	 bluez
 	 rar
-	 steam
 	 wine-wayland
 	 openssl
 	 qdirstat
 	 sshuttle
-	 protonvpn-gui
+	 proton-vpn
 	 proton-vpn-cli
 	 ripgrep
 	 fzy
@@ -435,6 +453,7 @@ hardware.bluetooth = {
  # Enable OpenGL
    hardware.graphics = {
      enable = true;
+     enable32Bit = true;
    };
    services.lact.enable = true;
    # Load nvidia driver for Xorg and Wayland
@@ -461,16 +480,17 @@ hardware.bluetooth = {
      # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
      # Only available from driver 515.43.04+
      
-     open = true;
+     open = false;
      # Enable the Nvidia settings menu,
  	# accessible via `nvidia-settings`.
      nvidiaSettings = true;
  
      # Optionally, you may need to select the appropriate driver version for your specific GPU.
-     package = config.boot.kernelPackages.nvidiaPackages.beta;
+     package = config.boot.kernelPackages.nvidiaPackages.latest;
    };
    hardware.nvidia.prime = {
    		offload.enable = true;
+   		offload.enableOffloadCmd = true;
    		# Make sure to use the correct Bus ID values for your system!
    		amdgpuBusId = "PCI:101:0:0";
    		nvidiaBusId = "PCI:100:0:0";
