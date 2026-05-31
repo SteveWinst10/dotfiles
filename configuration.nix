@@ -2,7 +2,7 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs,lib, ... }:
+{ config, pkgs,lib,inputs, ... }:
 
 {
   imports =
@@ -18,14 +18,8 @@
   };
   
 
-  zramSwap.enable = true;
   systemd.oomd.enable = true;
-  boot.kernelParams = [
-      "zswap.enabled=1" # enables zswap
-      "zswap.compressor=lz4" # compression algorithm
-      "zswap.max_pool_percent=20" # maximum percentage of RAM that zswap is allowed to use
-      "zswap.shrinker_enabled=1" # whether to shrink the pool proactively on high memory pressure
-    ];
+  zramSwap.enable = true;
   swapDevices = [{
     device = "/var/lib/swapfile";
     size = 16*1024; # 16 GiB
@@ -51,22 +45,10 @@
   time.timeZone = "Asia/Kolkata";
   # Select internationalisation properties.
   # Select internationalisation properties.
-    i18n.defaultLocale = "en_IN.UTF-8";
     
     # NixOS expects the specific glibc format: "locale/encoding"
     # Note: en_IN does not use a .UTF-8 suffix in its name here
   
-    i18n.extraLocaleSettings = {
-      LC_ADDRESS = "en_IN";
-      LC_IDENTIFICATION = "en_IN";
-      LC_MEASUREMENT = "en_IN";
-      LC_MONETARY = "en_IN";
-      LC_NAME = "en_IN";
-      LC_NUMERIC = "en_IN";
-      LC_PAPER = "en_IN";
-      LC_TELEPHONE = "en_IN";
-      LC_TIME = "en_IN";
-    };
   # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
   services.xserver.enable = true;
@@ -176,18 +158,21 @@
 	 nix-init
 	 statix
 	 nix-direnv
-	 flake-parts
 	 
 	 heroic
 	 vulkan-tools
-	 rpcs3
+	 (import inputs.nixpkgs-wolfssl {
+	        system = "x86_64-linux";
+	        config.allowUnfree = true;
+	      }).rpcs3
 	 protontricks
-	 sway
+
 	 swaybg
 	 i3
 	 i3status
 	 waybar
 	 ashell
+
 	 spotdl
 	 platformio
 	 platformio-core
@@ -218,10 +203,14 @@
 	 ncdu
 	 bat
 	 eza
+	 
 	 vlc
 	 mpv
-	 supertuxkart
 	 obs-studio
+	 jellyfin
+	 jellyfin-tui
+
+	 supertuxkart
 	 alsa-tools
 	 libv4l
 	 evtest
@@ -238,7 +227,13 @@
 	 hypridle
 	 hyprpaper
 	 hyprlock
-	 hyprcursor 
+	 hyprcursor
+
+	 mangowc
+
+	 niri
+
+	  
 	 btop
 	 p7zip
 	 peazip
@@ -264,12 +259,10 @@
 	 chromium
 	 floorp-bin
 
-	 niri
 	 wofi
 	 xdg-desktop-portal-gtk
      xdg-desktop-portal-gnome
      gnome-keyring
-	 zulu17
 	 python313
 	 uv
 	 powertop
@@ -291,7 +284,14 @@
 	 python313Packages.pip
 	 libsecret
 	 lact
+
+	 jdk25
   ];
+
+  # Inside your primary system flake.nix inputs:
+ 
+  
+  # Inside your configuration.nix module (passing inputs via specialArgs):
 
   # Some programs need SUID wrappers, can be configured further or are
   # started in user sessions.
