@@ -27,7 +27,8 @@
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-
+  boot.initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+  boot.kernelParams = [ "8250.nr_uarts=0" ];
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_zen;
   
@@ -83,6 +84,7 @@
     # no need to redefine it in your config for now)
     #media-session.enable = true;
   };
+  hardware.enableAllFirmware = true;
 
   # Enable touchpad support (enabled default in most desktopManager).
   # services.xserver.libinput.enable = true;
@@ -130,24 +132,30 @@
   	 onlyoffice-desktopeditors
 
   	 gnome-network-displays
+
   	 dnsmasq
   	 nmap
   	 sniffnet
   	 wireshark
   	 i2p
   	 i2pd
+
 	 usbutils
 	 wl-clipboard
 	 unzip
 	 imv
 	 kitty
+
 	 gcc
 	 gdb
 	 clang
 	 perf
 	 valgrind
+	 android-tools 
+
 	 python313Packages.pygame
 	 python313Packages.flask
+
 	 localsend
 
 	 nps
@@ -158,7 +166,8 @@
 	 nix-init
 	 statix
 	 nix-direnv
-	 
+	 lon
+	 	 
 	 heroic
 	 vulkan-tools
 	 (import inputs.nixpkgs-wolfssl {
@@ -166,7 +175,8 @@
 	        config.allowUnfree = true;
 	      }).rpcs3
 	 protontricks
-
+	 protonplus
+	 
 	 swaybg
 	 i3
 	 i3status
@@ -174,6 +184,7 @@
 	 ashell
 
 	 spotdl
+
 	 platformio
 	 platformio-core
 	 avrdude
@@ -193,11 +204,14 @@
      git
 	 gh
      qbittorrent
+
      ntfs3g
      exfat
      exfatprogs
      btrfs-progs
      btrfs-assistant
+	 snapper
+
 	 zsh
 	 duf
 	 ncdu
@@ -206,6 +220,7 @@
 	 
 	 vlc
 	 mpv
+	 ffmpeg
 	 obs-studio
 	 jellyfin
 	 jellyfin-tui
@@ -239,7 +254,6 @@
 	 peazip
 	 nvtopPackages.v3d
 	 lshw	
-	 parsec-bin
 	 openssh_hpn
 	 
 	 jetbrains.clion
@@ -250,7 +264,6 @@
 
 	 gemini-cli-bin
 	 opencode
-	 ollama-cuda
 	 aichat
 	 open-webui
 
@@ -259,13 +272,15 @@
 	 chromium
 	 floorp-bin
 
+
 	 wofi
 	 xdg-desktop-portal-gtk
      xdg-desktop-portal-gnome
      gnome-keyring
+
 	 python313
+	 
 	 uv
-	 powertop
 	 tlp
 	 blueman
 	 bluez
@@ -280,7 +295,6 @@
 	 fzy
 	 scrcpy
 	 python313Packages.pygame
-	 python313Packages.pipx
 	 python313Packages.pip
 	 libsecret
 	 lact
@@ -359,6 +373,9 @@
     remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
     dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
     localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
+    extraCompatPackages = [
+        pkgs.proton-ge-bin
+      ];
   };
 
   
@@ -372,7 +389,11 @@
       defaultNetwork.settings.dns_enabled = true;
     };
   };
-   
+ services.ollama = {
+   enable = true;
+   package = pkgs.ollama-cuda;
+ };
+ 
  services.tailscale = { 
    enable = true;
    useRoutingFeatures = "client";
@@ -426,8 +447,8 @@
       turbo = "auto";
    };
  };
- powerManagement.powertop.enable = true;
- powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
+# powerManagement.powertop.enable = true;
+# powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
 hardware.bluetooth = {
   enable = true;
   powerOnBoot = true;
@@ -448,7 +469,11 @@ hardware.bluetooth = {
     };
   };
 };
-
+systemd.settings = {
+  Manager = {
+    DefaultTimeoutStopSec = "10s";
+  };
+};
  
  # Enable OpenGL
    hardware.graphics = {
@@ -467,11 +492,11 @@ hardware.bluetooth = {
      # Enable this if you have graphical corruption issues or application crashes after waking
      # up from sleep. This fixes it by saving the entire VRAM memory to /tmp/ instead 
      # of just the bare essentials.
-     powerManagement.enable = false;
+     powerManagement.enable = true;
  
      # Fine-grained power management. Turns off GPU when not in use.
      # Experimental and only works on modern Nvidia GPUs (Turing or newer).
-     powerManagement.finegrained = true;
+     powerManagement.finegrained = false;
  
      # Use the NVidia open source kernel module (not to be confused with the
      # independent third-party "nouveau" open source driver).
@@ -480,13 +505,13 @@ hardware.bluetooth = {
      # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus 
      # Only available from driver 515.43.04+
      
-     open = false;
+     open = true;
      # Enable the Nvidia settings menu,
  	# accessible via `nvidia-settings`.
      nvidiaSettings = true;
  
      # Optionally, you may need to select the appropriate driver version for your specific GPU.
-     package = config.boot.kernelPackages.nvidiaPackages.latest;
+     package = config.boot.kernelPackages.nvidiaPackages.beta;
    };
    hardware.nvidia.prime = {
    		offload.enable = true;
