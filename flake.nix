@@ -2,6 +2,7 @@
  description = "Flake File";
  inputs =  {
     nixpkgs.url = "nixpkgs/nixos-unstable";
+	antigravity-nix.url = "github:jacopone/antigravity-nix";
   nixpkgs-wolfssl = {
     type = "github";
     owner = "nixos";

@@ -274,8 +274,7 @@
 	 opencode
 	 aichat
 	 open-webui
-
-	 nerd-fonts._0xproto 
+	 inputs.antigravity-nix.packages.${system}.default
 
 	 chromium
 	 floorp-bin
