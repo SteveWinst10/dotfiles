@@ -219,6 +219,10 @@
 
 	 spotdl
 
+	 kicad
+	 staruml
+
+	 
 	 platformio
 	 platformio-core
 	 avrdude
@@ -295,6 +299,8 @@
 	 jetbrains.clion
 	 jetbrains.rust-rover
 	 jetbrains.webstorm
+	 jetbrains.pycharm
+	 jetbrains.idea
 	 nodejs_24
 	 cargo
 
