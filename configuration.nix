@@ -111,6 +111,15 @@
     AQ_NO_ATOMIC = "1";
     WLR_DRM_DEVICES= "/dev/dri/card1";
   };
+  environment = {
+    shells = [ pkgs.zsh ];
+    variables = {
+      EDITOR = "micro";
+      SYSTEMD_EDITOR = "micro";
+      VISUAL = "micro";
+    };
+  };
+
    #environment.etc."ghidra/support/launch.properties" = {
    #   source = ./launch.properties;
 	  
