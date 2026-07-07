@@ -284,7 +284,7 @@
 	 hyprlock
 	 hyprcursor
 
-	 mangowc
+	 mango
 
 	 niri
 
