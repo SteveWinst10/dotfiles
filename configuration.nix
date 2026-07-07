@@ -141,6 +141,25 @@
 
   # List packages installed in system profile. To search, run:
   # $ nix search wget
+
+  fonts = {
+  	  enableDefaultPackages = true;
+  	  fontconfig = {
+  	  enable = true;
+	  defaultFonts = {
+	      monospace = ["Fira Code" "0xProto Nerd Font" "Lilex"];
+	      sansSerif = ["Fira Code" "Lilex" "0xProto Nerd Font"];
+	      serif =  ["Fira Code" "Lilex" "0xProto Nerd Font"];
+	  };
+    };
+
+	packages = with pkgs; [
+		lilex
+		nerd-fonts._0xproto
+		fira-code 
+	];			
+  };
+  
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   	 neovim
