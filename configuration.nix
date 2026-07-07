@@ -100,6 +100,12 @@
     #  thunderbird
     ];
   };
+  users.users.hat = {
+      isNormalUser = true;
+      shell =  pkgs.zsh;
+      description = "Rest of the Team";
+      extraGroups = [ "networkmanager" "wheel" ];
+    };
   users.defaultUserShell = pkgs.zsh;
   environment.sessionVariables = {
     AQ_NO_ATOMIC = "1";
