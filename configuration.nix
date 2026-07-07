@@ -341,6 +341,8 @@
 	 lact
 
 	 jdk25
+
+	 ryzenadj
   ];
 
   virtualisation.docker.enable = true;
