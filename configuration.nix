@@ -94,7 +94,7 @@
     isNormalUser = true;
     shell =  pkgs.zsh;
     description = "Steve Winston";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" ];
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
@@ -202,6 +202,8 @@
      starship
      tailscale
      git
+     podman
+     podman-compose
 	 gh
      qbittorrent
 
@@ -302,6 +304,12 @@
 	 jdk25
   ];
 
+  virtualisation.docker.enable = true;
+  virtualisation.docker.storageDriver = "btrfs";
+  virtualisation.docker.rootless = {
+    enable = true;
+    setSocketVariable = true;
+  };
   # Inside your primary system flake.nix inputs:
  
   
@@ -384,7 +392,7 @@
     podman = {
       enable = true;
       # Create a `docker` alias for podman, to use it as a drop-in replacement
-      dockerCompat = true;
+      dockerCompat = false;
       # Required for containers under podman-compose to be able to talk to each other.
       defaultNetwork.settings.dns_enabled = true;
     };
