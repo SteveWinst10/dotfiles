@@ -94,7 +94,7 @@
     isNormalUser = true;
     shell =  pkgs.zsh;
     description = "Steve Winston";
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    extraGroups = [ "networkmanager" "wheel"  ];
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
@@ -345,12 +345,6 @@
 	 ryzenadj
   ];
 
-  virtualisation.docker.enable = true;
-  virtualisation.docker.storageDriver = "btrfs";
-  virtualisation.docker.rootless = {
-    enable = true;
-    setSocketVariable = true;
-  };
   # Inside your primary system flake.nix inputs:
  
   
@@ -428,12 +422,12 @@
   };
 
   
-  virtualisation.containers.enable = true;
+ /* virtualisation.containers.enable = true;
   virtualisation = {
     podman = {
       enable = true;
       # Create a `docker` alias for podman, to use it as a drop-in replacement
-      dockerCompat = false;
+      dockerCompat = true;
       # Required for containers under podman-compose to be able to talk to each other.
       defaultNetwork.settings.dns_enabled = true;
     };
@@ -442,7 +436,7 @@
    enable = true;
    package = pkgs.ollama-cuda;
  };
- 
+ */
  services.tailscale = { 
    enable = true;
    useRoutingFeatures = "client";
