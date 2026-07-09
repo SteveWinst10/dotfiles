@@ -159,7 +159,11 @@
 		fira-code 
 	];			
   };
-  
+  programs.hyprland = {
+      enable = true;
+      # Ensures the wrapper loads the exact pinned flake binary
+      package = inputs.hyprland.packages.\${pkgs.stdenv.hostPlatform.system}.hyprland;
+    };
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   	 neovim
@@ -277,7 +281,6 @@
 	 #	url = "https://github.com/hyprwm/aquamarine/archive/refs/tags/v0.9.1.tar.gz";
 		# 	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
 	 #};}))
-	 hyprland
 	 hyprpanel
 	 hypridle
 	 hyprpaper
