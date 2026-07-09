@@ -9,6 +9,8 @@
     repo = "nixpkgs";
     ref = "nixos-24.11";
 	};
+
+
  hyprland = {
       url = "github:hyprwm/Hyprland/v0.51.0?submodules=1";
       # Correct way to override nested inputs within a flake input set
@@ -22,10 +24,13 @@
   let
     lib = nixpkgs.lib;
   in {
+   nixpkgs.hostPlatform = {
+     system = "x86_64-linux";
+     gcc.arch = "znver5"; # This belongs strictly in configuration.nix, NOT flake.nix
+   };
     nixosConfigurations = {
         SunnyGo = lib.nixosSystem {
             system = "x86_64-linux";
-            gcc.arch = "znver5";
 			specialArgs = { inherit inputs; };
             modules = [./configuration.nix hyprland.nixosModules.default];
         };

@@ -162,7 +162,7 @@
   programs.hyprland = {
       enable = true;
       # Ensures the wrapper loads the exact pinned flake binary
-      package = inputs.hyprland.packages.\${pkgs.stdenv.hostPlatform.system}.hyprland;
+      package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
     };
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
@@ -474,11 +474,11 @@
 #});
 
 
- programs.hyprland = {
-     enable = true;
-     withUWSM = false; # recommended for most users
-     xwayland.enable = true; # Xwayland can be disabled.
-   };
+ #programs.hyprland = {
+ #    enable = true;
+ #    withUWSM = false; # recommended for most users
+ #    xwayland.enable = true; # Xwayland can be disabled.
+ #  };
  programs.niri.enable = true;
 
 #power management
