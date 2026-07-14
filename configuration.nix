@@ -178,6 +178,8 @@
   	 i2p
   	 i2pd
 
+  	 kubernetes
+
 	 usbutils
 	 wl-clipboard
 	 unzip
@@ -314,6 +316,7 @@
 	 inputs.antigravity-nix.packages.${system}.default
 
 	 chromium
+	 firefox-devedition-bin   
 	 floorp-bin
 
 
