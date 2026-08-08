@@ -94,7 +94,7 @@
     isNormalUser = true;
     shell =  pkgs.zsh;
     description = "Steve Winston";
-    extraGroups = [ "networkmanager" "wheel"  ];
+    extraGroups = [ "networkmanager" "wheel" "docker" ];
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
@@ -160,7 +160,7 @@
 	];			
   };
   programs.hyprland = {
-      enable = true;
+      enable = false;
       # Ensures the wrapper loads the exact pinned flake binary
       package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
     };
@@ -179,7 +179,7 @@
   	 i2pd
 
   	 kubernetes
-
+	 foundry
 	 usbutils
 	 wl-clipboard
 	 unzip
@@ -308,6 +308,7 @@
 	 jetbrains.idea
 	 nodejs_24
 	 cargo
+	 oracle-instantclient
 
 	 gemini-cli-bin
 	 opencode
@@ -370,7 +371,10 @@
   # services.openssh.enable = true;
 
   # Open ports in the firewall.
-  # networking.firewall.allowedTCPPorts = [ ... ];
+   networking.firewall.allowedTCPPorts = [ 
+		  4318
+		  53317
+    ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false; 
@@ -379,7 +383,7 @@
     trustedInterfaces = [ "wlan0" ]; 
     
     # Some LAN games specifically need these for discovery
-    allowedUDPPorts = [ 5353 ]; # For mDNS (finding each other)
+    allowedUDPPorts = [ 5353 53317]; # For mDNS (finding each other)
   };
   boot.kernel.sysctl = {
       "net.ipv4.ip_forward" = 1;
@@ -427,22 +431,19 @@
       ];
   };
 
-  
- /* virtualisation.containers.enable = true;
+ virtualisation.containers.enable = true;
   virtualisation = {
     podman = {
       enable = true;
       # Create a `docker` alias for podman, to use it as a drop-in replacement
-      dockerCompat = true;
       # Required for containers under podman-compose to be able to talk to each other.
       defaultNetwork.settings.dns_enabled = true;
     };
   };
  services.ollama = {
-   enable = true;
+   enable = false;
    package = pkgs.ollama-cuda;
  };
- */
  services.tailscale = { 
    enable = true;
    useRoutingFeatures = "client";
@@ -486,16 +487,6 @@
 
 #power management
  #services.auto-cpufreq.enable = true;
- services.auto-cpufreq.settings = {
-   battery = {
-      governor = "powersave";
-      turbo = "never";
-   };
-   charger = {
-      governor = "performance";
-      turbo = "auto";
-   };
- };
 # powerManagement.powertop.enable = true;
 # powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
 hardware.bluetooth = {
@@ -545,7 +536,7 @@ systemd.settings = {
  
      # Fine-grained power management. Turns off GPU when not in use.
      # Experimental and only works on modern Nvidia GPUs (Turing or newer).
-     powerManagement.finegrained = false;
+     powerManagement.finegrained = true;
  
      # Use the NVidia open source kernel module (not to be confused with the
      # independent third-party "nouveau" open source driver).
