@@ -286,7 +286,6 @@
 	 #	url = "https://github.com/hyprwm/aquamarine/archive/refs/tags/v0.9.1.tar.gz";
 		# 	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
 	 #};}))
-	 hyprpanel
 	 hypridle
 	 hyprpaper
 	 hyprlock
