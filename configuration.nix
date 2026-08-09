@@ -84,6 +84,7 @@
     # no need to redefine it in your config for now)
     #media-session.enable = true;
   };
+  programs.dconf.enable = true; # for easyeffects
   hardware.enableAllFirmware = true;
 
   # Enable touchpad support (enabled default in most desktopManager).
@@ -270,6 +271,8 @@
 	 obs-studio
 	 jellyfin
 	 jellyfin-tui
+	 easyeffects
+	     deepfilternet # Contains the LADSPA noise cancellation plugin
 
 	 supertuxkart
 	 alsa-tools
