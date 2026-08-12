@@ -227,7 +227,6 @@
 	 spotdl
 
 	 kicad
-	 staruml
 
 	 
 	 platformio
@@ -339,8 +338,13 @@
 	 openssl
 	 qdirstat
 	 sshuttle
+	 
 	 proton-vpn
 	 proton-vpn-cli
+	 amnezia-vpn
+	 amneziawg-go
+	 amneziawg-tools
+
 	 ripgrep
 	 fzy
 	 scrcpy
