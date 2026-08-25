@@ -239,7 +239,10 @@
   	 sniffnet
   	 i2p
   	 i2pd
-  	 cisco-packet-tracer_9
+  	 (cisco-packet-tracer_9.overrideAttrs (oldAttrs: {
+  	   version = "9.0.1";
+  	   src = /home/steve/Downloads/CiscoPacketTracer_901_Ubuntu_64bit.deb;
+  	 }))
 
   	 kubernetes
   	 
