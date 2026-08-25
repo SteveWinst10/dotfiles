@@ -95,7 +95,7 @@
     isNormalUser = true;
     shell =  pkgs.zsh;
     description = "Steve Winston";
-    extraGroups = [ "networkmanager" "wheel" "docker" "wireshark" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "wireshark" "libvirtd" ];
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
@@ -109,8 +109,6 @@
     };
   users.defaultUserShell = pkgs.zsh;
   environment.sessionVariables = {
-    AQ_NO_ATOMIC = "1";
-    WLR_DRM_DEVICES= "/dev/dri/card1";
   };
   environment = {
     shells = [ pkgs.zsh ];
@@ -170,6 +168,67 @@
        package = pkgs.wireshark; 
        usbmon.enable = true;
      };
+   security.wrappers.sniffnet = {
+       source = "${pkgs.sniffnet}/bin/sniffnet";
+       capabilities = "cap_net_raw,cap_net_admin+eip";
+       owner = "root";
+       group = "root";
+     };
+   services.dnsmasq = {
+       enable = true;
+       
+       # Declarative settings (translates directly into dnsmasq.conf syntax)
+       settings = {
+         # 1. Network Interfaces to listen on
+         interface = [ "eth0" "eth1" ];
+         
+         # 2. Upstream DNS Servers (e.g., Cloudflare/Quad9)
+         server = [ "1.1.1.1" "9.9.9.9" ];
+         
+         # 3. Local Domain & DHCP Settings
+         domain = "lab.local";
+         local = "/lab.local/";
+         
+         # Set dynamic IP range, subnet mask, and lease duration (12 hours)
+         dhcp-range = [ "192.168.1.50,192.168.1.200,255.255.255.0,12h" ];
+   
+         # Set Default Gateway / Router IP announced via DHCP
+         dhcp-option = [ "option:router,192.168.1.1" ];
+   
+         # 4. Static IP Assignments (MAC Address -> Hostname -> IP)
+         dhcp-host = [
+           "aa:bb:cc:dd:ee:01,nas,192.168.1.10"
+           "aa:bb:cc:dd:ee:02,proxmox,192.168.1.20"
+         ];
+   
+         # 5. Local DNS Overrides (Map arbitrary domain names to IPs)
+         address = [
+           "/router.lab.local/192.168.1.1"
+         ];
+   
+         # 6. Security and Optimization
+         domain-needed = true; # Don't forward plain names without a domain
+         bogus-priv = true;    # Don't forward reverse-DNS lookups for private IP ranges
+         cache-size = 1000;    # Number of cached DNS queries in RAM
+       };
+     };
+   
+     # Open DNS (UDP/TCP 53) and DHCP (UDP 67) ports in the host firewall
+     networking.firewall.allowedTCPPorts = [ 53 ];
+   
+   virtualisation.libvirtd = {
+       enable = true;
+       # (Optional) Enable file sharing between host and guest (virtiofs)
+       qemu.vhostUserPackages = with pkgs; [ virtiofsd ];
+     };
+   
+     # 2. Enable virt-manager GUI frontend
+     programs.virt-manager.enable = true;
+   
+     # 3. Add your user account to the libvirtd group to grant VM control privileges
+   
+     # 4. (Optional) Enable USB Redirection inside Virt-Manager
+     virtualisation.spiceUSBRedirection.enable = true;
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   	 neovim
@@ -177,7 +236,6 @@
 
   	 gnome-network-displays
 
-  	 dnsmasq
   	 nmap
   	 sniffnet
   	 i2p
@@ -384,10 +442,6 @@
   # services.openssh.enable = true;
 
   # Open ports in the firewall.
-   networking.firewall.allowedTCPPorts = [ 
-		  4318
-		  53317
-    ];
   # networking.firewall.allowedUDPPorts = [ ... ];
   # Or disable the firewall altogether.
   # networking.firewall.enable = false; 
@@ -396,7 +450,8 @@
     trustedInterfaces = [ "wlan0" ]; 
     
     # Some LAN games specifically need these for discovery
-    allowedUDPPorts = [ 5353 53317]; # For mDNS (finding each other)
+    allowedUDPPorts = [53 67 5353 53317]; # For mDNS (finding each other)
+    allowedTCPPorts = [53 4318  53317];
   };
   boot.kernel.sysctl = {
       "net.ipv4.ip_forward" = 1;
