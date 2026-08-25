@@ -214,7 +214,6 @@
      };
    
      # Open DNS (UDP/TCP 53) and DHCP (UDP 67) ports in the host firewall
-     networking.firewall.allowedTCPPorts = [ 53 ];
    
    virtualisation.libvirtd = {
        enable = true;
