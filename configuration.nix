@@ -182,8 +182,10 @@
   	 sniffnet
   	 i2p
   	 i2pd
+  	 cisco-packet-tracer_9
 
   	 kubernetes
+  	 
 	 foundry
 	 usbutils
 	 wl-clipboard
