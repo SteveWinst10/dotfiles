@@ -95,7 +95,7 @@
     isNormalUser = true;
     shell =  pkgs.zsh;
     description = "Steve Winston";
-    extraGroups = [ "networkmanager" "wheel" "docker" ];
+    extraGroups = [ "networkmanager" "wheel" "docker" "wireshark" ];
     packages = with pkgs; [
       kdePackages.kate
     #  thunderbird
@@ -165,6 +165,11 @@
       # Ensures the wrapper loads the exact pinned flake binary
       package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
     };
+   programs.wireshark = {
+       enable = true;
+       package = pkgs.wireshark; 
+       usbmon.enable = true;
+     };
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   	 neovim
@@ -175,7 +180,6 @@
   	 dnsmasq
   	 nmap
   	 sniffnet
-  	 wireshark
   	 i2p
   	 i2pd
 
@@ -316,6 +320,7 @@
 	 aichat
 	 open-webui
 	 inputs.antigravity-nix.packages.${system}.default
+	 n8n
 
 	 chromium
 	 firefox-devedition-bin   
@@ -436,7 +441,7 @@
         pkgs.proton-ge-bin
       ];
   };
-
+ hardware.nvidia-container-toolkit.enable = true;
  virtualisation.containers.enable = true;
   virtualisation = {
     podman = {
