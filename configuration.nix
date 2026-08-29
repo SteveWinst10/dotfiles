@@ -378,7 +378,7 @@
 	 open-webui
 	 antigravity-ide-fhs
 	 antigravity-cli
-	 n8n
+	 #n8n
 
 	 chromium
 	 firefox-devedition  
