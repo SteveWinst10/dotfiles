@@ -449,7 +449,13 @@
     trustedInterfaces = [ "wlan0" ]; 
     
     # Some LAN games specifically need these for discovery
-    allowedUDPPorts = [53 67 5353 53317]; # For mDNS (finding each other)
+    allowedUDPPortRanges = [
+      { from = 1714; to = 1764; } #KDE Connect
+    ];
+    allowedUDPPorts = [ 53 67 5353 53317 ]; # For mDNS (finding each other)
+    allowedTCPPortRanges = [
+       { from = 1714; to = 1764; } #KDE Connect
+     ]; 
     allowedTCPPorts = [53 4318  53317];
   };
   programs.firejail = {
