@@ -3,7 +3,6 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    antigravity-nix.url = "github:jacopone/antigravity-nix";
 
     nixpkgs-wolfssl = {
       type = "github";

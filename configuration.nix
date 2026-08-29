@@ -373,15 +373,15 @@
 	 cargo
 	 oracle-instantclient
 
-	 gemini-cli-bin
 	 opencode
 	 aichat
 	 open-webui
-	 inputs.antigravity-nix.packages.${system}.default
+	 antigravity-ide-fhs
+	 antigravity-cli
 	 n8n
 
 	 chromium
-	 firefox-devedition-bin   
+	 firefox-devedition  
 	 floorp-bin
 
 
