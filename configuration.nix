@@ -83,6 +83,7 @@
     # no need to redefine it in your config for now)
     #media-session.enable = true;
   };
+  services.input-remapper.enable = true; # convert mouse/kb to joystick
   programs.dconf.enable = true; # for easyeffects
   hardware.enableAllFirmware = true;
 
@@ -451,6 +452,28 @@
     allowedUDPPorts = [53 67 5353 53317]; # For mDNS (finding each other)
     allowedTCPPorts = [53 4318  53317];
   };
+  programs.firejail = {
+      enable = true;
+      wrappedBinaries = {
+        packettracer9 = {
+          executable = lib.getExe pkgs.cisco-packet-tracer_9;
+  
+          # Will still want a .desktop entry as the package is not directly added
+  
+          extraArgs = [
+            # This should make it run in isolated netns, preventing internet access
+            "--net=none"
+  
+            # firejail is only needed for network isolation so no futher profile is needed
+            "--noprofile"
+  
+            # Packet tracer doesn't play nice with dark QT themes so this
+            # should unset the theme. Uncomment if you have this issue.
+            # ''--env=QT_STYLE_OVERRIDE=""''
+          ];
+        };
+      };
+    };
   boot.kernel.sysctl = {
       "net.ipv4.ip_forward" = 1;
     };
