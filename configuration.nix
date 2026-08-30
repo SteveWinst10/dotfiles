@@ -26,8 +26,8 @@
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  boot.initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
-  boot.kernelParams = [ "8250.nr_uarts=0" ];
+  #boot.initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
+
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_zen;
   
@@ -219,8 +219,17 @@
        enable = true;
        # (Optional) Enable file sharing between host and guest (virtiofs)
        qemu.vhostUserPackages = with pkgs; [ virtiofsd ];
+       qemu = {
+           package = pkgs.qemu_kvm;
+           runAsRoot = true;
+           swtpm.enable = true;
+         };
      };
-   
+   boot.kernelParams = [ 
+     "amd_iommu=on" # or "amd_iommu=on"
+     "vfio-pci.ids=10de:28e0,10de:22be"
+      "8250.nr_uarts=0"
+   ];
      # 2. Enable virt-manager GUI frontend
      programs.virt-manager.enable = true;
    
@@ -228,6 +237,13 @@
    
      # 4. (Optional) Enable USB Redirection inside Virt-Manager
      virtualisation.spiceUSBRedirection.enable = true;
+     boot.initrd.kernelModules = [ 
+       "vfio_pci"
+       "vfio"
+       "vfio_iommu_type1"
+     
+       "amdgpu" 
+     ];
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   	 neovim
