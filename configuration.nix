@@ -489,7 +489,9 @@
     allowedTCPPortRanges = [
        { from = 1714; to = 1764; } #KDE Connect
      ]; 
-    allowedTCPPorts = [53 4318  53317];
+    allowedTCPPorts = [53 4318  53317 
+    				11434 #ollama
+    				];
   };
   programs.firejail = {
       enable = true;
