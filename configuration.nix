@@ -385,7 +385,8 @@
 	 mango
 
 	 niri
-
+	 xwayland-satellite
+	 noctalia
 	  
 	 btop
 	 p7zip
