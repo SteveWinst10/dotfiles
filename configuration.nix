@@ -299,6 +299,7 @@
 	 nix-init
 	 statix
 	 nix-direnv
+	 nixfmt
 	 lon
 	 	 
 	 heroic
