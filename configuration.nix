@@ -2,43 +2,44 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
+{ config, pkgs, lib, inputs, ... }:
 {
-  config,
-  pkgs,
-  lib,
-  inputs,
-  ...
-}:
-{
-  imports = [
-    # Include the results of the hardware scan.
-    ./hardware-configuration.nix
-  ];
+  imports =
+    [ # Include the results of the hardware scan.
+      ./hardware-configuration.nix
+    ];
 
+  # ── Nix & package management ──────────────────────────────────
   nix.optimise.automatic = true;
   nix.gc = {
     automatic = true;
     dates = "weekly";
     options = "--delete-older-than 7d";
   };
+  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nixpkgs.config.allowUnfree = true;
 
+  # ── System identity, locale & time ─────────────────────────────
+  networking.hostName = "SunnyGo"; # Define your hostname.
+  time.timeZone = "Asia/Kolkata";
+  # Select internationalisation properties.
+  # NixOS expects the specific glibc format: "locale/encoding"
+  # Note: en_IN does not use a .UTF-8 suffix in its name here
+
+  # ── Boot, kernel & memory management ───────────────────────────
   systemd.oomd.enable = true;
   zramSwap.enable = true;
-  swapDevices = [
-    {
-      device = "/var/lib/swapfile";
-      size = 16 * 1024; # 16 GiB
-    }
-  ];
+  swapDevices = [{
+    device = "/var/lib/swapfile";
+    size = 16*1024; # 16 GiB
+  }];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
-  #boot.initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
-
   # Use latest kernel.
   boot.kernelPackages = pkgs.linuxPackages_zen;
 
-  networking.hostName = "SunnyGo"; # Define your hostname.
+  # ── Networking ──────────────────────────────────────────────────
   #networking.wireless.enable = true;  # Enables wireless support via wpa_supplicant.
 
   # Configure network proxy if necessary
@@ -48,465 +49,11 @@
   # Enable networking
   networking.networkmanager.enable = true;
 
-  # Set your time zone.
-  time.timeZone = "Asia/Kolkata";
-  # Select internationalisation properties.
-  # Select internationalisation properties.
-
-  # NixOS expects the specific glibc format: "locale/encoding"
-  # Note: en_IN does not use a .UTF-8 suffix in its name here
-
-  # Enable the X11 windowing system.
-  # You can disable this if you're only using the Wayland session.
-  services.xserver.enable = true;
-  # Enable the KDE Plasma Desktop Environment.
-  services.displayManager.sddm.enable = true;
-  services.desktopManager.plasma6.enable = true;
-  services.displayManager.defaultSession = lib.mkForce "plasma";
-  # Configure keymap in X11
-  services.xserver.xkb = {
-    layout = "us";
-    variant = "";
+  # IP forwarding — required for bridged VM (libvirtd) and container (podman)
+  # networking; see the Virtualisation and Containers sections below.
+  boot.kernel.sysctl = {
+    "net.ipv4.ip_forward" = 1;
   };
-
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
-
-  # Enable CUPS to print documents.
-  services.printing.enable = true;
-
-  # Enable sound with pipewire.
-  services.pulseaudio.enable = false;
-  security.rtkit.enable = true;
-  security.polkit.enable = true;
-  services.pipewire = {
-    enable = true;
-    alsa.enable = true;
-    alsa.support32Bit = true;
-    pulse.enable = true;
-    # If you want to use JACK applications, uncomment this
-    #jack.enable = true;
-
-    # use the example session manager (no others are packaged yet so this is enabled by default,
-    # no need to redefine it in your config for now)
-    #media-session.enable = true;
-  };
-  services.input-remapper.enable = true; # convert mouse/kb to joystick
-  programs.dconf.enable = true; # for easyeffects
-  hardware.enableAllFirmware = true;
-
-  # Enable touchpad support (enabled default in most desktopManager).
-  # services.xserver.libinput.enable = true;
-
-  # Define a user account. Don't forget to set a password with ‘passwd’.
-  users.users.steve = {
-    isNormalUser = true;
-    shell = pkgs.zsh;
-    description = "Steve Winston";
-    extraGroups = [
-      "networkmanager"
-      "wheel"
-      "docker"
-      "wireshark"
-      "libvirtd"
-    ];
-    packages = with pkgs; [
-      kdePackages.kate
-      #  thunderbird
-    ];
-  };
-  users.users.hat = {
-    isNormalUser = true;
-    shell = pkgs.zsh;
-    description = "Rest of the Team";
-    extraGroups = [
-      "networkmanager"
-      "wheel"
-    ];
-  };
-  users.defaultUserShell = pkgs.zsh;
-  environment.sessionVariables = {
-  };
-  environment = {
-    shells = [ pkgs.zsh ];
-    variables = {
-      EDITOR = "micro";
-      SYSTEMD_EDITOR = "micro";
-      VISUAL = "micro";
-    };
-  };
-
-  #environment.etc."ghidra/support/launch.properties" = {
-  #   source = ./launch.properties;
-
-  #};
-  /*
-    programs.ghidra.package = pkgs.ghidra.overrideAttrs (old: {
-      postFixup = ''
-        substituteInPlace support/launch.properties \
-          --replace "VMARGS_LINUX=-Dsun.java2d.uiScale=1" "VMARGS_LINUX=-Dsun.java2d.uiScale=2 "
-      '';
-    });
-    programs.ghidra.package = pkgs.ghidra.override {
-      vmArgs = [ "-Dsun.java2d.uiScale=2" ];
-    };
-  */
-  # Install firefox.
-  programs.firefox.enable = true;
-  # Allow unfree packages
-  nixpkgs.config.allowUnfree = true;
-
-  # List packages installed in system profile. To search, run:
-  # $ nix search wget
-
-  fonts = {
-    enableDefaultPackages = true;
-    fontconfig = {
-      enable = true;
-      defaultFonts = {
-        monospace = [
-          "Fira Code"
-          "0xProto Nerd Font"
-          "Lilex"
-        ];
-        sansSerif = [
-          "Fira Code"
-          "Lilex"
-          "0xProto Nerd Font"
-        ];
-        serif = [
-          "Fira Code"
-          "Lilex"
-          "0xProto Nerd Font"
-        ];
-      };
-    };
-
-    packages = with pkgs; [
-      lilex
-      nerd-fonts._0xproto
-      fira-code
-    ];
-  };
-  programs.hyprland = {
-    enable = false;
-    # Ensures the wrapper loads the exact pinned flake binary
-    package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
-  };
-  programs.wireshark = {
-    enable = true;
-    package = pkgs.wireshark;
-    usbmon.enable = true;
-  };
-  security.wrappers.sniffnet = {
-    source = "${pkgs.sniffnet}/bin/sniffnet";
-    capabilities = "cap_net_raw,cap_net_admin+eip";
-    owner = "root";
-    group = "root";
-  };
-  /*
-    services.dnsmasq = {
-           enable = false;
-
-           # Declarative settings (translates directly into dnsmasq.conf syntax)
-           settings = {
-             # 1. Network Interfaces to listen on
-             interface = [ "eth0" "eth1" ];
-
-             # 2. Upstream DNS Servers (e.g., Cloudflare/Quad9)
-             server = [ "1.1.1.1" "9.9.9.9" ];
-
-             # 3. Local Domain & DHCP Settings
-             domain = "lab.local";
-             local = "/lab.local/";
-
-             # Set dynamic IP range, subnet mask, and lease duration (12 hours)
-             dhcp-range = [ "192.168.1.50,192.168.1.200,255.255.255.0,12h" ];
-
-             # Set Default Gateway / Router IP announced via DHCP
-             dhcp-option = [ "option:router,192.168.1.1" ];
-
-             # 4. Static IP Assignments (MAC Address -> Hostname -> IP)
-             dhcp-host = [
-               "aa:bb:cc:dd:ee:01,nas,192.168.1.10"
-               "aa:bb:cc:dd:ee:02,proxmox,192.168.1.20"
-             ];
-
-             # 5. Local DNS Overrides (Map arbitrary domain names to IPs)
-             address = [
-               "/router.lab.local/192.168.1.1"
-             ];
-
-             # 6. Security and Optimization
-             domain-needed = true; # Don't forward plain names without a domain
-             bogus-priv = true;    # Don't forward reverse-DNS lookups for private IP ranges
-             cache-size = 1000;    # Number of cached DNS queries in RAM
-    		 extraConfig = ''
-    		     bind-interfaces
-    		     except-interface=virbr0
-    		   '';
-           };
-         };
-
-         # Open DNS (UDP/TCP 53) and DHCP (UDP 67) ports in the host firewall
-  */
-  virtualisation.libvirtd = {
-    enable = true;
-    # (Optional) Enable file sharing between host and guest (virtiofs)
-    qemu.vhostUserPackages = with pkgs; [ virtiofsd ];
-    qemu = {
-      package = pkgs.qemu_kvm;
-      runAsRoot = true;
-      swtpm.enable = true;
-    };
-  };
-  boot.kernelParams = [
-    "amd_iommu=on" # or "amd_iommu=on"
-    #"vfio-pci.ids=10de:28e0,10de:22be"
-    "8250.nr_uarts=0"
-  ];
-  # 2. Enable virt-manager GUI frontend
-  programs.virt-manager.enable = true;
-
-  # 3. Add your user account to the libvirtd group to grant VM control privileges
-
-  # 4. (Optional) Enable USB Redirection inside Virt-Manager
-  virtualisation.spiceUSBRedirection.enable = true;
-  /*
-    boot.initrd.kernelModules = [
-      "vfio_pci"
-      "vfio"
-      "vfio_iommu_type1"
-    	"kvmfr" #looking glass
-      "amdgpu"
-    ];
-    boot.extraModprobeConfig = ''
-        options kvmfr static_size_mb=32
-      '';
-    services.udev.extraRules = ''
-        SUBSYSTEM=="kvmfr", OWNER="root", GROUP="libvirtd", MODE="0660"
-      '';
-    boot.extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
-  */
-  environment.systemPackages = with pkgs; [
-    #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
-    neovim
-    onlyoffice-desktopeditors
-
-    gnome-network-displays
-
-    nmap
-    sniffnet
-    i2p
-    i2pd
-    unzip
-    cisco-packet-tracer_9
-    kubernetes
-    looking-glass-client
-
-    foundry
-    usbutils
-    wl-clipboard
-    imv
-    kitty
-
-    gcc
-    gdb
-    clang
-    perf
-    valgrind
-    android-tools
-
-    python313Packages.pygame
-    python313Packages.flask
-
-    localsend
-    kdePackages.kdeconnect-kde
-
-    nps
-    nh
-    comma
-    nix-index
-    nurl
-    nix-init
-    statix
-    nix-direnv
-    nixfmt
-    lon
-
-    heroic
-    vulkan-tools
-    (import inputs.nixpkgs-wolfssl {
-      system = "x86_64-linux";
-      config.allowUnfree = true;
-    }).rpcs3
-    protontricks
-    protonplus
-
-    swaybg
-    i3
-    i3status
-    waybar
-    ashell
-
-    spotdl
-
-    kicad
-
-    platformio
-    platformio-core
-    avrdude
-    telegram-desktop
-    yt-dlp
-    wget
-    micro
-    notepad-next
-    zoxide
-    fastfetch
-    (ghidra.overrideAttrs (oldAttrs: {
-      postInstall =
-        (oldAttrs.postInstall or "")
-        + "ln -sf ${./launch.properties} $out/lib/ghidra/support/launch.properties";
-    }))
-    ida-free
-    starship
-    tailscale
-    git
-    podman
-    podman-compose
-    gh
-    qbittorrent
-
-    ntfs3g
-    exfat
-    exfatprogs
-    btrfs-progs
-    btrfs-assistant
-    snapper
-
-    zsh
-    duf
-    ncdu
-    bat
-    eza
-
-    vlc
-    mpv
-    ffmpeg
-    obs-studio
-    jellyfin
-    jellyfin-tui
-    easyeffects
-    deepfilternet # Contains the LADSPA noise cancellation plugin
-    vesktop
-
-    supertuxkart
-    alsa-tools
-    libv4l
-    evtest
-    wev
-    #(hyprland.overrideAttrs (oldAttrs: {version = "0.49"; src = fetchurl {
-    #    url = "https://github.com/hyprwm/Hyprland/releases/download/v0.49.0/source-v0.49.0.tar.gz";
-    #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
-    #(aquamarine.overrideAttrs (oldAttrs: {version = "0.9.1-1"; src = fetchurl {
-    #	url = "https://github.com/hyprwm/aquamarine/archive/refs/tags/v0.9.1.tar.gz";
-    # 	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
-    #};}))
-    hypridle
-    hyprpaper
-    hyprlock
-    hyprcursor
-
-    mango
-
-    niri
-    xwayland-satellite
-    noctalia
-
-    btop
-    p7zip
-    peazip
-    nvtopPackages.v3d
-    lshw
-    openssh_hpn
-
-    jetbrains.clion
-    jetbrains.rust-rover
-    jetbrains.webstorm
-    jetbrains.pycharm
-    jetbrains.idea
-    nodejs_24
-    cargo
-    oracle-instantclient
-    arduino
-    arduino-ide
-
-    opencode
-    aichat
-    open-webui
-    antigravity-ide-fhs
-    antigravity-cli
-    #n8n
-    codex
-
-    chromium
-    firefox-devedition
-    floorp-bin
-
-    wofi
-    xdg-desktop-portal-gtk
-    xdg-desktop-portal-gnome
-    gnome-keyring
-
-    python313
-
-    uv
-    tlp
-    blueman
-    bluez
-    rar
-    wine-wayland
-    openssl
-    qdirstat
-    sshuttle
-
-    proton-vpn
-    proton-vpn-cli
-    amnezia-vpn
-    amneziawg-go
-    amneziawg-tools
-
-    ripgrep
-    fzy
-    scrcpy
-    python313Packages.pygame
-    python313Packages.pip
-    libsecret
-    lact
-
-    jdk25
-
-    ryzenadj
-  ];
-
-  # Inside your primary system flake.nix inputs:
-
-  # Inside your configuration.nix module (passing inputs via specialArgs):
-
-  # Some programs need SUID wrappers, can be configured further or are
-  # started in user sessions.
-  # programs.mtr.enable = true;
-  # programs.gnupg.agent = {
-  #   enable = true;
-  #   enableSSHSupport = true;
-  # };
-
-  # List services that you want to enable:
-
-  # Enable the OpenSSH daemon.
-  # services.openssh.enable = true;
 
   # Open ports in the firewall.
   # networking.firewall.allowedUDPPorts = [ ... ];
@@ -518,29 +65,89 @@
 
     # Some LAN games specifically need these for discovery
     allowedUDPPortRanges = [
-      {
-        from = 1714;
-        to = 1764;
-      } # KDE Connect
+      { from = 1714; to = 1764; } #KDE Connect
     ];
-    allowedUDPPorts = [
-      53
-      67
-      5353
-      53317
-    ]; # For mDNS (finding each other)
+    allowedUDPPorts = [ 53 67 5353 53317 ]; # For mDNS (finding each other)
     allowedTCPPortRanges = [
-      {
-        from = 1714;
-        to = 1764;
-      } # KDE Connect
+      { from = 1714; to = 1764; } #KDE Connect
     ];
     allowedTCPPorts = [
-      53
-      4318
-      53317
-      11434 # ollama
+      53 4318 53317
+      11434 # ollama — see the Misc services section; bound to 0.0.0.0,
+            # so this exposes the API to the whole LAN, not just localhost
     ];
+  };
+
+  services.tailscale = {
+    enable = true;
+    useRoutingFeatures = "client";
+  };
+  # Tailscale is enabled but intentionally not started automatically on boot;
+  # start it manually with `systemctl start tailscaled` when needed.
+  systemd.services.tailscaled = {
+    enable = true;
+    #restartIfChanged = false;
+    #serviceConfig.RemainAfterExit = false;
+    wantedBy = lib.mkForce [ ];
+  };
+
+  # (disabled) local DNS/DHCP server for a lab network. Kept for reference —
+  # re-enable by uncommenting if the lab network setup is needed again.
+  /*services.dnsmasq = {
+      enable = false;
+
+      # Declarative settings (translates directly into dnsmasq.conf syntax)
+      settings = {
+        # 1. Network Interfaces to listen on
+        interface = [ "eth0" "eth1" ];
+
+        # 2. Upstream DNS Servers (e.g., Cloudflare/Quad9)
+        server = [ "1.1.1.1" "9.9.9.9" ];
+
+        # 3. Local Domain & DHCP Settings
+        domain = "lab.local";
+        local = "/lab.local/";
+
+        # Set dynamic IP range, subnet mask, and lease duration (12 hours)
+        dhcp-range = [ "192.168.1.50,192.168.1.200,255.255.255.0,12h" ];
+
+        # Set Default Gateway / Router IP announced via DHCP
+        dhcp-option = [ "option:router,192.168.1.1" ];
+
+        # 4. Static IP Assignments (MAC Address -> Hostname -> IP)
+        dhcp-host = [
+          "aa:bb:cc:dd:ee:01,nas,192.168.1.10"
+          "aa:bb:cc:dd:ee:02,proxmox,192.168.1.20"
+        ];
+
+        # 5. Local DNS Overrides (Map arbitrary domain names to IPs)
+        address = [
+          "/router.lab.local/192.168.1.1"
+        ];
+
+        # 6. Security and Optimization
+        domain-needed = true; # Don't forward plain names without a domain
+        bogus-priv = true;    # Don't forward reverse-DNS lookups for private IP ranges
+        cache-size = 1000;    # Number of cached DNS queries in RAM
+        extraConfig = ''
+            bind-interfaces
+            except-interface=virbr0
+          '';
+      };
+    };
+  */
+
+  # ── Security, sandboxing & packet analysis tools ───────────────
+  programs.wireshark = {
+    enable = true;
+    package = pkgs.wireshark;
+    usbmon.enable = true;
+  };
+  security.wrappers.sniffnet = {
+    source = "${pkgs.sniffnet}/bin/sniffnet";
+    capabilities = "cap_net_raw,cap_net_admin+eip";
+    owner = "root";
+    group = "root";
   };
   programs.firejail = {
     enable = true;
@@ -564,76 +171,36 @@
       };
     };
   };
-  boot.kernel.sysctl = {
-    "net.ipv4.ip_forward" = 1;
-  };
-  # This value determines the NixOS release from which the default
-  # settings for stateful data, like file locations and database versions
-  # on your system were taken. It‘s perfectly fine and recommended to leave
-  # this value at the release version of the first install of this system.
-  # Before changing this value read the documentation for this option
-  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
-  system.stateVersion = "25.05"; # Did you read the comment?
 
-  # Enable the gnome-keyring secrets vault.
-  # Will be exposed through DBus to programs willing to store secrets.
-  services.gnome.gnome-keyring.enable = true;
-  programs.direnv.enable = true;
-  programs.nix-ld.enable = true;
-  # enable Sway window manager
-  programs.sway = {
-    enable = true;
-    wrapperFeatures.gtk = true;
-  };
-  services.openssh = {
-    enable = true;
-  };
-  services.xserver.windowManager.i3.enable = true;
-  #Asus specific packages
-  services.supergfxd.enable = true;
-  services = {
-    asusd = {
-      enable = true;
-      #enableUserService = true;
-    };
-  };
-
-  services.udev.packages = with pkgs; [ platformio-core.udev ];
-  programs.steam = {
-    enable = true;
-    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
-    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
-    localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
-    extraCompatPackages = [
-      pkgs.proton-ge-bin
+  # ── Users & shell ───────────────────────────────────────────────
+  # Define a user account. Don't forget to set a password with ‘passwd’.
+  users.users.steve = {
+    isNormalUser = true;
+    shell = pkgs.zsh;
+    description = "Steve Winston";
+    extraGroups = [ "networkmanager" "wheel" "docker" "wireshark" "libvirtd" ];
+    packages = with pkgs; [
+      kdePackages.kate
+    #  thunderbird
     ];
   };
-  hardware.nvidia-container-toolkit.enable = true;
-  virtualisation.containers.enable = true;
-  virtualisation = {
-    podman = {
-      enable = true;
-      # Create a `docker` alias for podman, to use it as a drop-in replacement
-      # Required for containers under podman-compose to be able to talk to each other.
-      defaultNetwork.settings.dns_enabled = true;
+  users.users.hat = {
+    isNormalUser = true;
+    shell = pkgs.zsh;
+    description = "Rest of the Team";
+    extraGroups = [ "networkmanager" "wheel" ];
+  };
+  users.defaultUserShell = pkgs.zsh;
+
+  environment = {
+    shells = [ pkgs.zsh ];
+    variables = {
+      EDITOR = "micro";
+      SYSTEMD_EDITOR = "micro";
+      VISUAL = "micro";
     };
   };
-  services.ollama = {
-    enable = true;
-    package = pkgs.ollama-cuda;
-    host = "0.0.0.0";
-    port = 11434;
-  };
-  services.tailscale = {
-    enable = true;
-    useRoutingFeatures = "client";
-  };
-  systemd.services.tailscaled = {
-    enable = true;
-    #restartIfChanged = false;
-    #serviceConfig.RemainAfterExit = false;
-    wantedBy = lib.mkForce [ ];
-  };
+
   programs.zsh = {
     enable = true;
     enableCompletion = true;
@@ -653,21 +220,85 @@
   programs.starship.enable = true;
   programs.zoxide.enableZshIntegration = true;
 
+  # ── Desktop environment & window managers ──────────────────────
+  # Enable the X11 windowing system.
+  # You can disable this if you're only using the Wayland session.
+  services.xserver.enable = true;
+  # Enable the KDE Plasma Desktop Environment.
+  services.displayManager.sddm.enable = true;
+  services.desktopManager.plasma6.enable = true;
+  services.displayManager.defaultSession = lib.mkForce "plasma";
+  # Configure keymap in X11
+  services.xserver.xkb = {
+    layout = "us";
+    variant = "";
+  };
+  # Enable touchpad support (enabled default in most desktopManager).
+  # services.xserver.libinput.enable = true;
+
+  programs.hyprland = {
+    enable = false;
+    # Ensures the wrapper loads the exact pinned flake binary
+    package = inputs.hyprland.packages.${pkgs.stdenv.hostPlatform.system}.hyprland;
+  };
+  # (disabled) old pinned-version override experiment, and an alternate
+  # hyprland.enable form — kept for reference only.
   # pkgs.hyprland.overrideAttrs (finalAttrs: previousAttrs: {
   # 	version = "0.49";
-  #});
-
+  # });
   #programs.hyprland = {
   #    enable = true;
   #    withUWSM = false; # recommended for most users
   #    xwayland.enable = true; # Xwayland can be disabled.
   #  };
+  # enable Sway window manager
+  programs.sway = {
+    enable = true;
+    wrapperFeatures.gtk = true;
+  };
   programs.niri.enable = true;
+  services.xserver.windowManager.i3.enable = true;
 
-  #power management
-  #services.auto-cpufreq.enable = true;
-  # powerManagement.powertop.enable = true;
-  # powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
+  # ── Audio ───────────────────────────────────────────────────────
+  # Enable sound with pipewire.
+  services.pulseaudio.enable = false;
+  security.rtkit.enable = true;
+  security.polkit.enable = true;
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+    # If you want to use JACK applications, uncomment this
+    #jack.enable = true;
+
+    # use the example session manager (no others are packaged yet so this is enabled by default,
+    # no need to redefine it in your config for now)
+    #media-session.enable = true;
+  };
+  programs.dconf.enable = true; # for easyeffects
+
+  # ── Fonts ───────────────────────────────────────────────────────
+  fonts = {
+    enableDefaultPackages = true;
+    fontconfig = {
+      enable = true;
+      defaultFonts = {
+        monospace = ["Fira Code" "0xProto Nerd Font" "Lilex"];
+        sansSerif = ["Fira Code" "Lilex" "0xProto Nerd Font"];
+        serif =  ["Fira Code" "Lilex" "0xProto Nerd Font"];
+      };
+    };
+
+    packages = with pkgs; [
+      lilex
+      nerd-fonts._0xproto
+      fira-code
+    ];
+  };
+
+  # ── Hardware & firmware ─────────────────────────────────────────
+  hardware.enableAllFirmware = true;
   hardware.bluetooth = {
     enable = true;
     powerOnBoot = true;
@@ -688,11 +319,11 @@
       };
     };
   };
-  systemd.settings = {
-    Manager = {
-      DefaultTimeoutStopSec = "10s";
-    };
-  };
+  services.input-remapper.enable = true; # convert mouse/kb to joystick
+  services.udev.packages = with pkgs; [ platformio-core.udev ];
+
+  # ── Graphics / NVIDIA ───────────────────────────────────────────
+  #boot.initrd.kernelModules = [ "nvidia" "nvidia_modeset" "nvidia_uvm" "nvidia_drm" ];
 
   # Enable OpenGL
   hardware.graphics = {
@@ -701,7 +332,7 @@
   };
   services.lact.enable = true;
   # Load nvidia driver for Xorg and Wayland
-  services.xserver.videoDrivers = [ "nvidia" ];
+  services.xserver.videoDrivers = ["nvidia"];
   hardware.nvidia = {
 
     # Modesetting is required.
@@ -731,22 +362,363 @@
     nvidiaBusId = "PCI:100:0:0";
     # amdgpuBusId = "PCI:54:0:0"; For AMD GPU
   };
-  /*
-    boot.extraModprobeConfig = ''
-    	    blacklist nouveau
-    	    options nouveau modeset=0
-    	  '';
+  # (disabled) older nouveau-blacklisting approach, superseded by the
+  # hardware.nvidia config above. Kept for reference only.
+  /* boot.extraModprobeConfig = ''
+        blacklist nouveau
+        options nouveau modeset=0
+      '';
 
-    	  services.udev.extraRules = ''
-    	    # Remove NVIDIA USB xHCI Host Controller devices, if present
-    	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
-    	    # Remove NVIDIA USB Type-C UCSI devices, if present
-    	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
-    	    # Remove NVIDIA Audio devices, if present
-    	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
-    	    # Remove NVIDIA VGA/3D controller devices
-    	    ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
-    	  '';
-    	  boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
+      services.udev.extraRules = ''
+        # Remove NVIDIA USB xHCI Host Controller devices, if present
+        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
+        # Remove NVIDIA USB Type-C UCSI devices, if present
+        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
+        # Remove NVIDIA Audio devices, if present
+        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
+        # Remove NVIDIA VGA/3D controller devices
+        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
+      '';
+      boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
   */
+
+  # ── Virtualisation & GPU passthrough (VFIO) ─────────────────────
+  virtualisation.libvirtd = {
+    enable = true;
+    # (Optional) Enable file sharing between host and guest (virtiofs)
+    qemu.vhostUserPackages = with pkgs; [ virtiofsd ];
+    qemu = {
+      package = pkgs.qemu_kvm;
+      runAsRoot = true;
+      swtpm.enable = true;
+    };
+  };
+  # Enable virt-manager GUI frontend
+  programs.virt-manager.enable = true;
+  # (Optional) Enable USB Redirection inside Virt-Manager
+  virtualisation.spiceUSBRedirection.enable = true;
+
+  boot.kernelParams = [
+    "amd_iommu=on" # or "amd_iommu=on"
+    #"vfio-pci.ids=10de:28e0,10de:22be"
+    "8250.nr_uarts=0" # unrelated to VFIO; disables unused UART ports
+  ];
+
+  # (disabled) GPU passthrough device binding + Looking Glass (kvmfr) kernel
+  # support. NOTE: the `looking-glass-client` package in the System packages
+  # section below is currently non-functional while this stays disabled,
+  # since it depends on the kvmfr module configured here.
+  /* boot.initrd.kernelModules = [
+       "vfio_pci"
+       "vfio"
+       "vfio_iommu_type1"
+       "kvmfr" #looking glass
+       "amdgpu"
+     ];
+     boot.extraModprobeConfig = ''
+         options kvmfr static_size_mb=32
+       '';
+     services.udev.extraRules = ''
+         SUBSYSTEM=="kvmfr", OWNER="root", GROUP="libvirtd", MODE="0660"
+       '';
+     boot.extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
+  */
+
+  # ── Containers ──────────────────────────────────────────────────
+  hardware.nvidia-container-toolkit.enable = true;
+  virtualisation.containers.enable = true;
+  virtualisation.podman = {
+    enable = true;
+    # Create a `docker` alias for podman, to use it as a drop-in replacement
+    # Required for containers under podman-compose to be able to talk to each other.
+    defaultNetwork.settings.dns_enabled = true;
+  };
+
+  # ── Gaming ──────────────────────────────────────────────────────
+  programs.steam = {
+    enable = true;
+    remotePlay.openFirewall = true; # Open ports in the firewall for Steam Remote Play
+    dedicatedServer.openFirewall = true; # Open ports in the firewall for Source Dedicated Server
+    localNetworkGameTransfers.openFirewall = true; # Open ports in the firewall for Steam Local Network Game Transfers
+    extraCompatPackages = [
+      pkgs.proton-ge-bin
+    ];
+  };
+
+  # ── ASUS laptop services ────────────────────────────────────────
+  services.supergfxd.enable = true;
+  services.asusd.enable = true;
+  #services.asusd.enableUserService = true;
+
+  # ── Misc services & developer conveniences ─────────────────────
+  # Enable the gnome-keyring secrets vault.
+  # Will be exposed through DBus to programs willing to store secrets.
+  services.gnome.gnome-keyring.enable = true;
+  programs.direnv.enable = true;
+  programs.nix-ld.enable = true;
+
+  # Enable CUPS to print documents.
+  services.printing.enable = true;
+
+  # Some programs need SUID wrappers, can be configured further or are
+  # started in user sessions.
+  # programs.mtr.enable = true;
+  # programs.gnupg.agent = {
+  #   enable = true;
+  #   enableSSHSupport = true;
+  # };
+
+  # Enable the OpenSSH daemon.
+  services.openssh = {
+    enable = true;
+  };
+
+  services.ollama = {
+    enable = true;
+    package = pkgs.ollama-cuda;
+    # Bound to all interfaces and reachable via the firewall rule above —
+    # confirm this LAN-wide exposure is intended (vs. localhost + Tailscale).
+    host = "0.0.0.0";
+    port = 11434;
+  };
+
+  systemd.settings = {
+    Manager = {
+      DefaultTimeoutStopSec = "10s";
+    };
+  };
+
+  #power management
+  #services.auto-cpufreq.enable = true;
+  # powerManagement.powertop.enable = true;
+  # powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
+
+  # Install firefox.
+  programs.firefox.enable = true;
+
+  # (disabled) Ghidra UI-scaling override experiment.
+  #environment.etc."ghidra/support/launch.properties" = {
+  #   source = ./launch.properties;
+  #};
+  /*programs.ghidra.package = pkgs.ghidra.overrideAttrs (old: {
+    postFixup = ''
+      substituteInPlace support/launch.properties \
+        --replace "VMARGS_LINUX=-Dsun.java2d.uiScale=1" "VMARGS_LINUX=-Dsun.java2d.uiScale=2 "
+    '';
+  });
+  programs.ghidra.package = pkgs.ghidra.override {
+    vmArgs = [ "-Dsun.java2d.uiScale=2" ];
+  };
+  */
+
+  # ── System packages ─────────────────────────────────────────────
+  # List packages installed in system profile. To search, run:
+  # $ nix search wget
+  environment.systemPackages = with pkgs; [
+    #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
+
+    # Editors & core CLI
+    neovim
+    wget
+    micro
+    notepad-next
+    starship
+    git
+    gh
+
+    # Shell & CLI utilities
+    zsh
+    duf
+    ncdu
+    bat
+    eza
+    zoxide
+    fastfetch
+    btop
+    p7zip
+    peazip
+    ripgrep
+    fzy
+    comma
+    nh
+    nix-index
+    nurl
+    nix-init
+    statix
+    nix-direnv
+    lon
+    nps
+    qdirstat
+    sshuttle
+    rar
+    unzip
+    lshw
+    openssh_hpn
+    ryzenadj
+    tlp
+    blueman
+    bluez
+    libsecret
+    openssl
+    nvtopPackages.v3d
+    lact
+    usbutils
+    wl-clipboard
+
+    # Networking & remote access
+    nmap
+    sniffnet
+    i2p
+    i2pd
+    kubernetes
+    localsend
+    kdePackages.kdeconnect-kde
+    gnome-network-displays
+    scrcpy
+    proton-vpn
+    proton-vpn-cli
+    amnezia-vpn
+    amneziawg-go
+    amneziawg-tools
+    tailscale
+
+    # Virtualisation / GPU passthrough
+    # (disabled: depends on the kvmfr kernel module, currently commented out
+    # in the Virtualisation & GPU passthrough section above)
+    # looking-glass-client
+
+    # Filesystem & disk utilities
+    ntfs3g
+    exfat
+    exfatprogs
+    btrfs-progs
+    btrfs-assistant
+    snapper
+
+    # Reverse engineering / security research
+    (ghidra.overrideAttrs (oldAttrs: {
+          postInstall = (oldAttrs.postInstall or "") + "ln -sf ${./launch.properties} $out/lib/ghidra/support/launch.properties";
+    }))
+    ida-free
+    cisco-packet-tracer_9
+    foundry
+    kicad
+    platformio
+    platformio-core
+    avrdude
+    arduino
+    arduino-ide
+    android-tools
+
+    # Development toolchains & IDEs
+    gcc
+    gdb
+    clang
+    perf
+    valgrind
+    jetbrains.clion
+    jetbrains.rust-rover
+    jetbrains.webstorm
+    jetbrains.pycharm
+    jetbrains.idea
+    nodejs_24
+    cargo
+    oracle-instantclient
+    python313
+    python313Packages.pygame
+    python313Packages.flask
+    python313Packages.pip
+    uv
+    jdk25
+
+    # AI / LLM tools
+    opencode
+    aichat
+    open-webui
+    antigravity-ide-fhs
+    antigravity-cli
+    #n8n
+    codex
+
+    # Wayland / niri desktop ecosystem
+    niri
+    xwayland-satellite
+    noctalia
+    mango
+    hypridle
+    hyprpaper
+    hyprlock
+    hyprcursor
+    waybar
+    ashell
+    wofi
+    swaybg
+    i3
+    i3status
+    xdg-desktop-portal-gtk
+    xdg-desktop-portal-gnome
+    gnome-keyring
+    imv
+    kitty
+    evtest
+    wev
+    #(hyprland.overrideAttrs (oldAttrs: {version = "0.49"; src = fetchurl {
+    #    url = "https://github.com/hyprwm/Hyprland/releases/download/v0.49.0/source-v0.49.0.tar.gz";
+    #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
+    #(aquamarine.overrideAttrs (oldAttrs: {version = "0.9.1-1"; src = fetchurl {
+    #	url = "https://github.com/hyprwm/aquamarine/archive/refs/tags/v0.9.1.tar.gz";
+    #	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
+    #};}))
+
+    # Media & audio
+    vlc
+    mpv
+    ffmpeg
+    obs-studio
+    jellyfin
+    jellyfin-tui
+    easyeffects
+    deepfilternet # Contains the LADSPA noise cancellation plugin
+    alsa-tools
+    libv4l
+    spotdl
+
+    # Communication & office
+    telegram-desktop
+    vesktop
+    onlyoffice-desktopeditors
+
+    # Gaming
+    supertuxkart
+    heroic
+    vulkan-tools
+    (import inputs.nixpkgs-wolfssl {
+           system = "x86_64-linux";
+           config.allowUnfree = true;
+         }).rpcs3
+    protontricks
+    protonplus
+    wine-wayland
+
+    # Browsers
+    chromium
+    firefox-devedition
+    floorp-bin
+
+    # Torrents / downloads
+    qbittorrent
+    yt-dlp
+
+    # Containers (CLI, in addition to the services configured above)
+    podman
+    podman-compose
+  ];
+
+  # This value determines the NixOS release from which the default
+  # settings for stateful data, like file locations and database versions
+  # on your system were taken. It's perfectly fine and recommended to leave
+  # this value at the release version of the first install of this system.
+  # Before changing this value read the documentation for this option
+  # (e.g. man configuration.nix or on https://nixos.org/nixos/options.html).
+  system.stateVersion = "25.05"; # Did you read the comment?
 }
