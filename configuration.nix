@@ -231,7 +231,7 @@
      };
    boot.kernelParams = [ 
      "amd_iommu=on" # or "amd_iommu=on"
-     "vfio-pci.ids=10de:28e0,10de:22be"
+     #"vfio-pci.ids=10de:28e0,10de:22be"
       "8250.nr_uarts=0"
    ];
      # 2. Enable virt-manager GUI frontend
@@ -241,13 +241,21 @@
    
      # 4. (Optional) Enable USB Redirection inside Virt-Manager
      virtualisation.spiceUSBRedirection.enable = true;
-     boot.initrd.kernelModules = [ 
+    /* boot.initrd.kernelModules = [ 
        "vfio_pci"
        "vfio"
        "vfio_iommu_type1"
-     
+     	"kvmfr" #looking glass
        "amdgpu" 
      ];
+     boot.extraModprobeConfig = ''
+         options kvmfr static_size_mb=32
+       '';
+     services.udev.extraRules = ''
+         SUBSYSTEM=="kvmfr", OWNER="root", GROUP="libvirtd", MODE="0660"
+       '';
+     boot.extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
+	*/
   environment.systemPackages = with pkgs; [
   #  vim # Do not forget to add an editor to edit configuration.nix! The Nano editor is also installed by default.
   	 neovim
