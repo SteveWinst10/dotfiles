@@ -412,6 +412,7 @@
 	 antigravity-ide-fhs
 	 antigravity-cli
 	 #n8n
+	 codex
 
 	 chromium
 	 firefox-devedition  
