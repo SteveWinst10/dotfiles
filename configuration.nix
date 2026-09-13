@@ -403,7 +403,9 @@
 	 nodejs_24
 	 cargo
 	 oracle-instantclient
-
+	 arduino
+	 arduino-ide
+	 
 	 opencode
 	 aichat
 	 open-webui
