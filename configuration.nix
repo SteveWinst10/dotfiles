@@ -174,8 +174,8 @@
        owner = "root";
        group = "root";
      };
-   services.dnsmasq = {
-       enable = true;
+   /*services.dnsmasq = {
+       enable = false;
        
        # Declarative settings (translates directly into dnsmasq.conf syntax)
        settings = {
