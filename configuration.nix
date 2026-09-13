@@ -205,16 +205,20 @@
          address = [
            "/router.lab.local/192.168.1.1"
          ];
-   
+   	
          # 6. Security and Optimization
          domain-needed = true; # Don't forward plain names without a domain
          bogus-priv = true;    # Don't forward reverse-DNS lookups for private IP ranges
          cache-size = 1000;    # Number of cached DNS queries in RAM
+		 extraConfig = ''
+		     bind-interfaces
+		     except-interface=virbr0
+		   '';
        };
      };
    
      # Open DNS (UDP/TCP 53) and DHCP (UDP 67) ports in the host firewall
-   
+   */
    virtualisation.libvirtd = {
        enable = true;
        # (Optional) Enable file sharing between host and guest (virtiofs)
