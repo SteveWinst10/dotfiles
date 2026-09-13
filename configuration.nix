@@ -267,13 +267,14 @@
   	 sniffnet
   	 i2p
   	 i2pd
+	 unzip
 	 cisco-packet-tracer_9
   	 kubernetes
+  	 looking-glass-client
   	 
 	 foundry
 	 usbutils
 	 wl-clipboard
-	 unzip
 	 imv
 	 kitty
 
