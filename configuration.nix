@@ -363,6 +363,7 @@
 	 jellyfin-tui
 	 easyeffects
 	     deepfilternet # Contains the LADSPA noise cancellation plugin
+	 vesktop
 
 	 supertuxkart
 	 alsa-tools
