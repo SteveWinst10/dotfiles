@@ -403,26 +403,49 @@
     #"vfio-pci.ids=10de:28e0,10de:22be"
     "8250.nr_uarts=0" # unrelated to VFIO; disables unused UART ports
   ];
-
-  # (disabled) GPU passthrough device binding + Looking Glass (kvmfr) kernel
-  # support. NOTE: the `looking-glass-client` package in the System packages
-  # section below is currently non-functional while this stays disabled,
-  # since it depends on the kvmfr module configured here.
-  /* boot.initrd.kernelModules = [
-       "vfio_pci"
-       "vfio"
-       "vfio_iommu_type1"
-       "kvmfr" #looking glass
-       "amdgpu"
-     ];
-     boot.extraModprobeConfig = ''
-         options kvmfr static_size_mb=32
-       '';
-     services.udev.extraRules = ''
-         SUBSYSTEM=="kvmfr", OWNER="root", GROUP="libvirtd", MODE="0660"
-       '';
-     boot.extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
-  */
+  boot.kernelModules = [ "kvmfr" ];
+  boot.extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
+  boot.extraModprobeConfig = ''
+      options kvmfr static_size_mb=64
+    '';
+  services.udev.extraRules = ''
+      SUBSYSTEM=="kvmfr", OWNER="steve", GROUP="libvirtd", MODE="0660"
+    '';
+  system.activationScripts.libvirt-hooks.text = ''
+      mkdir -p /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin
+      mkdir -p /var/lib/libvirt/hooks/qemu.d/archlinux/release/end
+  
+      # Main hook router
+      cat <<'EOF' > /var/lib/libvirt/hooks/qemu
+      #!/run/current-system/sw/bin/bash
+      GUEST_NAME="$1"
+      HOOK_NAME="$2"
+      STATE_NAME="$3"
+      HOOKPATH="/var/lib/libvirt/hooks/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+      if [ -f "$HOOKPATH" ]; then
+        eval "$HOOKPATH" "$@"
+      elif [ -d "$HOOKPATH" ]; then
+        for file in "$HOOKPATH"/*; do
+          [ -x "$file" ] && eval "$file" "$@"
+        done
+      fi
+      EOF
+      chmod +x /var/lib/libvirt/hooks/qemu
+  
+      # Detach NVIDIA dGPU (Runs before VM starts)
+      cat <<'EOF' > /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin/bind_vfio.sh
+      #!/run/current-system/sw/bin/bash
+      supergfxctl -m Vfio
+      EOF
+      chmod +x /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin/bind_vfio.sh
+  
+      # Reattach NVIDIA dGPU (Runs after VM shuts down)
+      cat <<'EOF' > /var/lib/libvirt/hooks/qemu.d/archlinux/release/end/revert_vfio.sh
+      #!/run/current-system/sw/bin/bash
+      supergfxctl -m Hybrid
+      EOF
+      chmod +x /var/lib/libvirt/hooks/qemu.d/archlinux/release/end/revert_vfio.sh
+    '';
 
   # ── Containers ──────────────────────────────────────────────────
   hardware.nvidia-container-toolkit.enable = true;
