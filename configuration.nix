@@ -571,8 +571,10 @@
     };
   };
  services.ollama = {
-   enable = false;
+   enable = true;
    package = pkgs.ollama-cuda;
+   host = "0.0.0.0";
+    port = 11434;
  };
  services.tailscale = { 
    enable = true;
