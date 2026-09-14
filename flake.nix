@@ -17,6 +17,11 @@
     };
 
     aquamarine.url = "github:hyprwm/aquamarine/v0.9.1";
+
+    spicetify-nix = {
+      url = "github:Gerg-L/spicetify-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -24,6 +29,7 @@
       self,
       nixpkgs,
       hyprland,
+      spicetify-nix, 
       ...
     }@inputs:
     let
@@ -37,6 +43,7 @@
           modules = [
             ./configuration.nix
             hyprland.nixosModules.default
+            spicetify-nix.nixosModules.default
           ];
         };
       };

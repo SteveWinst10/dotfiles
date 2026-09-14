@@ -278,6 +278,45 @@
   };
   programs.dconf.enable = true; # for easyeffects
 
+  # **********************User Apps**********************
+
+  # Spicetify
+  
+  programs.spicetify =
+  let
+    spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+  in
+  {
+      enable = true;
+  
+      theme = spicePkgs.themes.dribbblish;
+  	  colorScheme = "catppuccin-mocha";
+      enabledExtensions = with spicePkgs.extensions; [
+        adblock
+        shuffle
+        groupSession
+        powerBar
+        seekSong
+        keyboardShortcut
+        fullAppDisplay
+        volumePercentage
+        oldLikeButton
+        ytVideo
+        sessionStats
+        focusMode
+        sidebarCustomizer
+      ];
+      enabledCustomApps = with spicePkgs.apps; [
+          ncsVisualizer
+          lyricsPlus
+          betterLibrary
+        ];
+      enabledSnippets = with spicePkgs.snippets; [
+          rotatingCoverart
+          pointer
+        ];
+    };
+
   # ── Fonts ───────────────────────────────────────────────────────
   fonts = {
     enableDefaultPackages = true;
@@ -555,6 +594,7 @@
     ncdu
     bat
     eza
+    file
     zoxide
     fastfetch
     btop
