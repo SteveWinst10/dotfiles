@@ -25,6 +25,7 @@
 
   # ── Boot, kernel & memory management ───────────────────────────
   systemd.oomd.enable = true;
+  zramSwap.enable = true;
   swapDevices = [{
     device = "/var/lib/swapfile";
     size = 16*1024; # 16 GiB
@@ -35,7 +36,7 @@
 
   # ── Networking ──────────────────────────────────────────────────
   networking.networkmanager.enable = true;
- networking.networkmanager.wifi.powersave = true;	
+
   networking.firewall = {
     trustedInterfaces = [ "wlan0" ];
     allowedUDPPortRanges = [
@@ -202,7 +203,7 @@
   services.gnome.gnome-keyring.enable = true;
   programs.direnv.enable = true;
   programs.nix-ld.enable = true;
-  services.printing.enable = false;
+  services.printing.enable = true;
   services.openssh.enable = true;
   programs.firefox.enable = true;
 
