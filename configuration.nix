@@ -369,7 +369,7 @@
     enable = true;
     enable32Bit = true;
   };
-  services.lact.enable = true;
+  services.lact.enable = false;
   # Load nvidia driver for Xorg and Wayland
   services.xserver.videoDrivers = ["nvidia"];
   hardware.nvidia = {
