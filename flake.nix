@@ -37,7 +37,7 @@
     in
     {
       nixosConfigurations = {
-        SunnyGo = lib.nixosSystem {
+        Thousand-Sunny = lib.nixosSystem {
           system = "x86_64-linux";
           specialArgs = { inherit inputs; };
           modules = [

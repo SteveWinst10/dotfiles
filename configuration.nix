@@ -20,7 +20,7 @@
   nixpkgs.config.allowUnfree = true;
 
   # ── System identity, locale & time ─────────────────────────────
-  networking.hostName = "Thousand Sunny"; # Define your hostname.
+  networking.hostName = "Thousand-Sunny"; # Define your hostname.
   time.timeZone = "Asia/Kolkata";
   # Select internationalisation properties.
   # NixOS expects the specific glibc format: "locale/encoding"
