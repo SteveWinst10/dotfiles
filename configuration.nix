@@ -376,7 +376,9 @@
 
     # Modesetting is required.
     modesetting.enable = true;
-
+	powerManagement.enable = true;
+	powerManagement.finegrained = true;
+	
     # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
     # Enable this if you have graphical corruption issues or application crashes after waking
     # up from sleep. This fixes it by saving the entire VRAM memory to /tmp/ instead
@@ -550,7 +552,12 @@
     };
   };
 
-  #power management
+  power management
+  services.power-profiles-daemon.enable = true;
+  powerManagement.powertop.enable = true;
+  hardware.bluetooth.powerOnBoot = false;
+  services.printing.browsed.enable = false;
+  systemd.services.ollama.wantedBy = lib.mkForce [ ];
   #services.auto-cpufreq.enable = true;
   # powerManagement.powertop.enable = true;
   # powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
