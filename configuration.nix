@@ -692,6 +692,9 @@
     jetbrains.pycharm
     jetbrains.idea
     nodejs_24
+    playwright
+    playwright-test
+    playwright-mcp
     cargo
     oracle-instantclient
     python313
