@@ -340,7 +340,7 @@
   hardware.enableAllFirmware = true;
   hardware.bluetooth = {
     enable = true;
-    powerOnBoot = true;
+    powerOnBoot = false;
     settings = {
       General = {
         # Shows battery charge of connected devices on supported
@@ -552,10 +552,8 @@
     };
   };
 
-  power management
+  #power management
   services.power-profiles-daemon.enable = true;
-  powerManagement.powertop.enable = true;
-  hardware.bluetooth.powerOnBoot = false;
   services.printing.browsed.enable = false;
   systemd.services.ollama.wantedBy = lib.mkForce [ ];
   #services.auto-cpufreq.enable = true;
@@ -786,6 +784,14 @@
     podman
     podman-compose
   ];
+  environment.sessionVariables = {
+      # Force Firefox to use native Wayland instead of XWayland
+      MOZ_ENABLE_WAYLAND = "1";
+  
+      # Force Firefox to use your integrated AMD GPU (Mesa driver)
+      # instead of trying to invoke NVIDIA EGL buffers under Niri
+      DRI_PRIME = "0";
+    };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
