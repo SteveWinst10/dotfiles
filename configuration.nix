@@ -195,9 +195,9 @@
   environment = {
     shells = [ pkgs.zsh ];
     variables = {
-      EDITOR = "micro";
-      SYSTEMD_EDITOR = "micro";
-      VISUAL = "micro";
+      EDITOR = "nvim";
+      SYSTEMD_EDITOR = "nvim";
+      VISUAL = "nvim";
     };
   };
 
@@ -212,8 +212,8 @@
       cd = "z";
       cat = "bat";
       df = "duf";
-      nixcedit = "micro ~/.dotfiles/configuration.nix";
-      nixhedit = "micro ~/.dotfiles/hardware-configuration.nix";
+      nixcedit = "nvim ~/.dotfiles/configuration.nix";
+      nixhedit = "nvim ~/.dotfiles/hardware-configuration.nix";
       update = "sudo nixos-rebuild switch --flake ~/.dotfiles/";
     };
   };
