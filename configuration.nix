@@ -223,7 +223,6 @@
   # ── Desktop environment & window managers ──────────────────────
   # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
-  services.xserver.enable = true;
   # Enable the KDE Plasma Desktop Environment.
   services.displayManager.sddm.enable = true;
   services.desktopManager.plasma6.enable = true;
@@ -371,8 +370,8 @@
   };
   services.lact.enable = false;
   # Load nvidia driver for Xorg and Wayland
-  services.xserver.videoDrivers = ["nvidia"];
-  hardware.nvidia = {
+    hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
+    hardware.nvidia = {
 
     # Modesetting is required.
     modesetting.enable = true;
@@ -387,7 +386,6 @@
     # https://github.com/NVIDIA/open-gpu-kernel-modules#compatible-gpus
     # Only available from driver 515.43.04+
 
-    open = true;
     # Enable the Nvidia settings menu,
     # accessible via `nvidia-settings`.
     nvidiaSettings = true;
@@ -395,14 +393,14 @@
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.latest;
   };
-  hardware.nvidia.prime = {
-    offload.enable = true;
-    offload.enableOffloadCmd = true;
-    # Make sure to use the correct Bus ID values for your system!
-    amdgpuBusId = "PCI:101:0:0";
-    nvidiaBusId = "PCI:100:0:0";
-    # amdgpuBusId = "PCI:54:0:0"; For AMD GPU
-  };
+  # hardware.nvidia.prime = {
+  #   offload.enable = true;
+  #   offload.enableOffloadCmd = true;
+  #   Make sure to use the correct Bus ID values for your system!
+  #   amdgpuBusId = "PCI:101:0:0";
+  #   nvidiaBusId = "PCI:100:0:0";
+  #   amdgpuBusId = "PCI:54:0:0"; For AMD GPU
+  # };
   # (disabled) older nouveau-blacklisting approach, superseded by the
   # hardware.nvidia config above. Kept for reference only.
   /* boot.extraModprobeConfig = ''
