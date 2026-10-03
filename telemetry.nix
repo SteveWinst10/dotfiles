@@ -28,7 +28,7 @@ in
     
     serviceConfig = {
       # Path interpolation `${./...}` ensures it points to the Nix store
-      ExecStart = "${telemetryPython}/bin/python3${./scripts/laptop-logger.py}";
+      ExecStart = "${telemetryPython}/bin/python3 ${./scripts/laptop-logger.py}";
       Restart = "always";
       RestartSec = "10s";
     };
@@ -36,6 +36,6 @@ in
 
   # Hook the dashboard up to your ZSH aliases
   programs.zsh.shellAliases = {
-    show-telemetry = "${telemetryPython}/bin/streamlit run${./scripts/laptop-dashboard.py}";
+    show-telemetry = "${telemetryPython}/bin/streamlit run ${./scripts/laptop-dashboard.py}";
   };
 }
