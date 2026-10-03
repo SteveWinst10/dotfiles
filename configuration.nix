@@ -537,7 +537,7 @@
 
   services.ollama = {
     enable = true;
-    package = pkgs.ollama-cuda;
+    package = pkgs.ollama;
     # Bound to all interfaces and reachable via the firewall rule above —
     # confirm this LAN-wide exposure is intended (vs. localhost + Tailscale).
     host = "0.0.0.0";
