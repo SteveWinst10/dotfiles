@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>System Telemetry</title>
+<style>
+/* ── Reset & Base ─────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:        #080b14;
+  --bg-card:   rgba(14, 19, 34, 0.75);
+  --bg-hover:  rgba(22, 30, 52, 0.85);
+  --border:    rgba(255,255,255,0.06);
+  --text:      #e0e4f0;
+  --text-dim:  #7a84a8;
+  --text-faint:#4a5670;
+
+  --cpu:       #64b5f6;
+  --igpu:      #ffb74d;
+  --dgpu:      #81c784;
+  --ram:       #ce93d8;
+  --batt:      #ffd54f;
+  --power:     #ef5350;
+  --net:       #4dd0e1;
+  --disk:      #a1887f;
+  --fan:       #90a4ae;
+  --proc:      #7986cb;
+
+  --green:     #4caf50;
+  --yellow:    #ffa726;
+  --red:       #ef5350;
+
+  --radius:    14px;
+  --radius-sm: 8px;
+  --mono:      'Fira Code','SF Mono','Cascadia Code','JetBrains Mono',monospace;
+  --sans:      system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+}
+
+html{font-size:14px}
+body{
+  font-family:var(--sans);color:var(--text);
+  background:var(--bg);
+  background-image:
+    radial-gradient(ellipse at 15% 50%,rgba(100,181,246,.04) 0%,transparent 55%),
+    radial-gradient(ellipse at 85% 20%,rgba(206,147,216,.035) 0%,transparent 50%),
+    radial-gradient(ellipse at 50% 85%,rgba(129,199,132,.03) 0%,transparent 50%);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.header{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 1.25rem;
+  background:rgba(8,11,20,.88);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+}
+.header-left{display:flex;align-items:center;gap:.75rem}
+.header-title{font-size:1.15rem;font-weight:700;letter-spacing:-.02em}
+.header-sub{color:var(--text-dim);font-size:.8rem;font-family:var(--mono)}
+.status-dot{
+  width:8px;height:8px;border-radius:50%;
+  display:inline-block;margin-right:4px;
+  animation:pulse 2s infinite;
+}
+.status-dot.live{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-dot.dead{background:var(--red);box-shadow:0 0 6px var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.header-right{display:flex;align-items:center;gap:1rem;font-size:.8rem;color:var(--text-dim)}
+
+/* ── Grid ─────────────────────────────────────────────────── */
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
+  gap:.85rem;padding:1rem 1.25rem;
+  max-width:1800px;margin:0 auto;
+}
+.card-wide{grid-column:1 / -1}
+
+/* ── Card ─────────────────────────────────────────────────── */
+.card{
+  background:var(--bg-card);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:1.1rem 1.25rem;
+  backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  transition:background .3s,transform .25s,box-shadow .3s;
+}
+.card:hover{
+  background:var(--bg-hover);
+  transform:translateY(-2px);
+  box-shadow:0 8px 30px rgba(0,0,0,.25);
+}
+.card-header{
+  display:flex;align-items:center;gap:.5rem;
+  margin-bottom:.85rem;
+}
+.card-icon{font-size:1.1rem}
+.card-title{font-size:.85rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim)}
+.card-accent{width:3px;height:16px;border-radius:2px;flex-shrink:0}
+
+/* ── Metric row ───────────────────────────────────────────── */
+.metric{display:flex;justify-content:space-between;align-items:baseline;padding:.25rem 0}
+.metric-label{color:var(--text-dim);font-size:.78rem}
+.metric-value{
+  font-family:var(--mono);font-size:1rem;font-weight:600;
+  font-variant-numeric:tabular-nums;
+  transition:color .4s;
+}
+.metric-big{font-size:1.8rem;font-weight:700;line-height:1.1}
+.metric-unit{font-size:.7rem;font-weight:400;color:var(--text-dim);margin-left:2px}
+
+/* ── Sparkline ────────────────────────────────────────────── */
+.sparkline-wrap{margin-top:.5rem}
+.sparkline{width:100%;height:36px;display:block;border-radius:var(--radius-sm)}
+
+/* ── Progress bar ─────────────────────────────────────────── */
+.bar-wrap{
+  margin:.35rem 0;display:flex;align-items:center;gap:.6rem;
+}
+.bar-track{
+  flex:1;height:7px;border-radius:4px;
+  background:rgba(255,255,255,.06);overflow:hidden;
+}
+.bar-fill{
+  height:100%;border-radius:4px;
+  transition:width .6s cubic-bezier(.22,1,.36,1),background .4s;
+}
+.bar-label{font-size:.72rem;color:var(--text-dim);min-width:40px;text-align:right}
+.bar-value{font-family:var(--mono);font-size:.78rem;min-width:42px;text-align:right}
+
+/* ── Core grid ────────────────────────────────────────────── */
+.core-grid{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:3px;
+  margin-top:.5rem;
+}
+.core-row{
+  display:flex;align-items:center;gap:4px;font-size:.7rem;
+}
+.core-idx{color:var(--text-faint);font-family:var(--mono);width:18px;text-align:right}
+.core-track{flex:1;height:5px;border-radius:3px;background:rgba(255,255,255,.05);overflow:hidden}
+.core-fill{height:100%;border-radius:3px;transition:width .5s ease,background .4s}
+.core-val{font-family:var(--mono);color:var(--text-dim);width:32px;text-align:right;font-size:.65rem}
+
+/* ── Process table ────────────────────────────────────────── */
+.proc-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.proc-table th{
+  text-align:left;color:var(--text-faint);font-weight:500;
+  padding:.4rem .5rem;border-bottom:1px solid var(--border);
+  font-size:.7rem;text-transform:uppercase;letter-spacing:.04em;
+}
+.proc-table td{padding:.35rem .5rem;font-family:var(--mono);font-size:.75rem}
+.proc-table tr:hover td{background:rgba(255,255,255,.03)}
+.proc-name{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── dGPU state badge ─────────────────────────────────────── */
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:10px;font-size:.7rem;font-weight:600;
+}
+.badge-active{background:rgba(76,175,80,.15);color:var(--green)}
+.badge-suspended{background:rgba(144,164,174,.12);color:var(--fan)}
+
+/* ── Battery visual ───────────────────────────────────────── */
+.batt-visual{
+  display:flex;align-items:center;gap:.5rem;margin:.35rem 0;
+}
+.batt-icon{
+  width:42px;height:22px;border:2px solid var(--text-dim);border-radius:4px;
+  position:relative;overflow:hidden;
+}
+.batt-icon::after{
+  content:'';position:absolute;right:-5px;top:5px;
+  width:3px;height:8px;background:var(--text-dim);border-radius:0 2px 2px 0;
+}
+.batt-fill{height:100%;transition:width .6s ease,background .4s;border-radius:1px}
+.batt-pct{font-family:var(--mono);font-size:1.4rem;font-weight:700}
+.batt-state{font-size:.75rem;color:var(--text-dim)}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.footer{
+  text-align:center;padding:1rem;color:var(--text-faint);font-size:.7rem;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media(max-width:720px){
+  .grid{grid-template-columns:1fr;padding:.75rem}
+  .core-grid{grid-template-columns:1fr}
+  .header{flex-wrap:wrap;gap:.5rem}
+}
+
+/* ── Loading ──────────────────────────────────────────────── */
+.loading{
+  display:flex;align-items:center;justify-content:center;
+  min-height:60vh;flex-direction:column;gap:1rem;
+}
+.spinner{
+  width:36px;height:36px;border:3px solid var(--border);
+  border-top-color:var(--cpu);border-radius:50%;
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-left">
+    <span style="font-size:1.3rem">🖥️</span>
+    <span class="header-title" id="hostname">System Telemetry</span>
+  </div>
+  <div class="header-right">
+    <span id="kernel" style="color:var(--text-faint)"></span>
+    <span>⏱ <span id="uptime">—</span></span>
+    <span><span class="status-dot" id="status-dot"></span><span id="status-text">Connecting…</span></span>
+  </div>
+</header>
+
+<!-- Loading -->
+<div class="loading" id="loading-screen">
+  <div class="spinner"></div>
+  <div style="color:var(--text-dim)">Waiting for telemetry data…</div>
+</div>
+
+<!-- Dashboard (hidden until first data) -->
+<div class="grid" id="dashboard" style="display:none">
+
+  <!-- ═══ Battery & Power ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--batt)"></div>
+      <span class="card-icon">🔋</span>
+      <span class="card-title">Battery</span>
+    </div>
+    <div class="batt-visual">
+      <div class="batt-icon"><div class="batt-fill" id="batt-fill"></div></div>
+      <span class="batt-pct" id="batt-pct">—</span>
+      <span class="batt-state" id="batt-state"></span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Discharge Rate</span>
+      <span class="metric-value" id="batt-power">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Time Remaining</span>
+      <span class="metric-value" id="batt-time">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--power)"></div>
+      <span class="card-icon">⚡</span>
+      <span class="card-title">System Power</span>
+    </div>
+    <div style="text-align:center;padding:.5rem 0">
+      <span class="metric-value metric-big" id="sys-power">—</span>
+      <span class="metric-unit">W</span>
+    </div>
+    <div class="sparkline-wrap">
+      <canvas class="sparkline" id="spark-power" width="400" height="36"></canvas>
+    </div>
+    <div class="metric" style="margin-top:.3rem">
+      <span class="metric-label">Source</span>
+      <span class="metric-value" id="power-source" style="font-size:.8rem">—</span>
+    </div>
+  </div>
+
+  <!-- ═══ CPU ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--cpu)"></div>
+      <span class="card-icon">🧠</span>
+      <span class="card-title">CPU</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Temperature</span>
+      <span class="metric-value" id="cpu-temp">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Package Power</span>
+      <span class="metric-value" id="cpu-power">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Usage</span>
+      <span class="metric-value" id="cpu-usage">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Frequency</span>
+      <span class="metric-value" id="cpu-freq">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Load Avg</span>
+      <span class="metric-value" id="cpu-load" style="font-size:.8rem">—</span>
+    </div>
+    <div class="sparkline-wrap">
+      <canvas class="sparkline" id="spark-cpu" width="400" height="36"></canvas>
+    </div>
+  </div>
+
+  <!-- CPU Per-Core -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--cpu)"></div>
+      <span class="card-icon">📊</span>
+      <span class="card-title">Per-Core Utilization</span>
+      <span style="margin-left:auto;color:var(--text-faint);font-size:.7rem" id="core-info"></span>
+    </div>
+    <div class="core-grid" id="core-grid"></div>
+  </div>
+
+  <!-- ═══ iGPU ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--igpu)"></div>
+      <span class="card-icon">🎨</span>
+      <span class="card-title">iGPU — AMD Radeon</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Temperature</span>
+      <span class="metric-value" id="igpu-temp">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Power Draw</span>
+      <span class="metric-value" id="igpu-power">—</span>
+    </div>
+    <div class="sparkline-wrap">
+      <canvas class="sparkline" id="spark-igpu" width="400" height="36"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ dGPU ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--dgpu)"></div>
+      <span class="card-icon">🖥️</span>
+      <span class="card-title">dGPU — NVIDIA RTX</span>
+      <span id="dgpu-badge" class="badge badge-suspended" style="margin-left:auto">Suspended</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Temperature</span>
+      <span class="metric-value" id="dgpu-temp">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Power Draw</span>
+      <span class="metric-value" id="dgpu-power">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Utilization</span>
+      <span class="metric-value" id="dgpu-util">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">VRAM</span>
+      <span class="metric-value" id="dgpu-vram">—</span>
+    </div>
+    <div class="sparkline-wrap">
+      <canvas class="sparkline" id="spark-dgpu" width="400" height="36"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ Memory ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--ram)"></div>
+      <span class="card-icon">💾</span>
+      <span class="card-title">Memory</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">RAM</span>
+      <span class="metric-value" id="ram-text">—</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-track"><div class="bar-fill" id="ram-bar" style="background:var(--ram)"></div></div>
+      <span class="bar-value" id="ram-pct">—</span>
+    </div>
+    <div class="metric" style="margin-top:.5rem">
+      <span class="metric-label">Swap</span>
+      <span class="metric-value" id="swap-text">—</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-track"><div class="bar-fill" id="swap-bar" style="background:var(--igpu)"></div></div>
+      <span class="bar-value" id="swap-pct">—</span>
+    </div>
+    <div class="sparkline-wrap">
+      <canvas class="sparkline" id="spark-ram" width="400" height="36"></canvas>
+    </div>
+  </div>
+
+  <!-- ═══ Fans ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--fan)"></div>
+      <span class="card-icon">🌀</span>
+      <span class="card-title">Fans</span>
+    </div>
+    <div id="fan-list"><span class="metric-label">No fan data</span></div>
+  </div>
+
+  <!-- ═══ Network ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--net)"></div>
+      <span class="card-icon">📡</span>
+      <span class="card-title">Network</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">↑ Upload</span>
+      <span class="metric-value" id="net-up">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">↓ Download</span>
+      <span class="metric-value" id="net-down">—</span>
+    </div>
+    <div class="metric" style="margin-top:.3rem">
+      <span class="metric-label">Total Sent</span>
+      <span class="metric-value" style="font-size:.8rem" id="net-total-up">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Total Received</span>
+      <span class="metric-value" style="font-size:.8rem" id="net-total-down">—</span>
+    </div>
+  </div>
+
+  <!-- ═══ Disk ═══ -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--disk)"></div>
+      <span class="card-icon">💽</span>
+      <span class="card-title">Disk</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Read Rate</span>
+      <span class="metric-value" id="disk-read">—</span>
+    </div>
+    <div class="metric">
+      <span class="metric-label">Write Rate</span>
+      <span class="metric-value" id="disk-write">—</span>
+    </div>
+    <div class="metric" style="margin-top:.3rem">
+      <span class="metric-label">Usage</span>
+      <span class="metric-value" id="disk-usage-text">—</span>
+    </div>
+    <div class="bar-wrap">
+      <div class="bar-track"><div class="bar-fill" id="disk-bar" style="background:var(--disk)"></div></div>
+      <span class="bar-value" id="disk-pct">—</span>
+    </div>
+  </div>
+
+  <!-- ═══ Top Processes ═══ -->
+  <div class="card card-wide">
+    <div class="card-header">
+      <div class="card-accent" style="background:var(--proc)"></div>
+      <span class="card-icon">⚡</span>
+      <span class="card-title">Top Processes by CPU</span>
+    </div>
+    <table class="proc-table">
+      <thead><tr><th>PID</th><th>Name</th><th style="text-align:right">CPU %</th><th style="text-align:right">Mem</th></tr></thead>
+      <tbody id="proc-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="footer">Telemetry · refreshes every 2 s · localhost:9999</div>
+
+<script>
+/* ── Sparkline History ──────────────────────────────────────── */
+const MAX = 90;
+const hist = {
+  power: [], cpu: [], igpu: [], dgpu: [], ram: [],
+};
+
+function pushHist(key, val) {
+  if (val == null) return;
+  hist[key].push(val);
+  if (hist[key].length > MAX) hist[key].shift();
+}
+
+function drawSparkline(id, data, color) {
+  const c = document.getElementById(id);
+  if (!c || data.length < 2) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr;
+  const ctx = c.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const max = Math.max(...data, 1), min = Math.min(...data, 0);
+  const range = max - min || 1;
+  const pad = 2;
+
+  // Gradient fill
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - pad * 2) - pad;
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(w, h);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, color + '30');
+  grad.addColorStop(1, color + '05');
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - pad * 2) - pad;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Latest value dot
+  if (data.length > 0) {
+    const lx = w;
+    const ly = h - ((data[data.length-1] - min) / range) * (h - pad*2) - pad;
+    ctx.beginPath();
+    ctx.arc(lx, ly, 2.5, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  }
+}
+
+/* ── Helpers ────────────────────────────────────────────────── */
+function fmt(v, unit, dec=1) {
+  if (v == null) return '—';
+  return parseFloat(v).toFixed(dec) + (unit || '');
+}
+
+function tempColor(t) {
+  if (t == null) return 'var(--text)';
+  if (t < 55) return 'var(--green)';
+  if (t < 80) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function usageColor(pct) {
+  if (pct == null) return 'var(--text)';
+  if (pct < 50) return 'var(--green)';
+  if (pct < 80) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function battColor(pct) {
+  if (pct == null) return 'var(--text-dim)';
+  if (pct > 50) return 'var(--green)';
+  if (pct > 20) return 'var(--yellow)';
+  return 'var(--red)';
+}
+
+function el(id) { return document.getElementById(id); }
+
+function formatBytes(kb) {
+  if (kb == null) return '—';
+  if (kb < 1024) return kb.toFixed(1) + ' KB/s';
+  return (kb / 1024).toFixed(2) + ' MB/s';
+}
+
+function formatMB(mb) {
+  if (mb == null) return '—';
+  if (mb >= 1024) return (mb / 1024).toFixed(1) + ' GB';
+  return Math.round(mb) + ' MB';
+}
+
+/* ── Update Dashboard ──────────────────────────────────────── */
+function update(d) {
+  if (!d || !d.timestamp) return;
+
+  // Show dashboard, hide loading
+  el('loading-screen').style.display = 'none';
+  el('dashboard').style.display = 'grid';
+
+  // Header
+  el('hostname').textContent = (d.hostname || 'System') + ' Telemetry';
+  el('uptime').textContent = d.uptime || '—';
+  el('kernel').textContent = d.kernel ? '🐧 ' + d.kernel : '';
+
+  // Battery
+  const b = d.battery || {};
+  const bp = b.percent;
+  el('batt-pct').textContent = bp != null ? bp + '%' : '—';
+  el('batt-pct').style.color = battColor(bp);
+  const isAC = b.state && (b.state.includes('AC') || b.state.includes('Plugged') || b.state === 'Charging' || b.state === 'Full');
+  el('batt-state').textContent = isAC ? ('⚡ ' + (b.state || 'Plugged In')) : '🔌 On Battery';
+  el('batt-power').textContent = b.power_w != null ? b.power_w + ' W' : '—';
+  el('batt-time').textContent = b.time_left || '—';
+  const bf = el('batt-fill');
+  bf.style.width = (bp || 0) + '%';
+  bf.style.background = bp > 50 ? 'var(--green)' : bp > 20 ? 'var(--yellow)' : 'var(--red)';
+
+  // System power
+  const sp = d.system_power_w;
+  el('sys-power').textContent = sp != null ? sp.toFixed(1) : '—';
+  el('sys-power').style.color = sp != null ? (sp > 45 ? 'var(--red)' : sp > 25 ? 'var(--yellow)' : 'var(--green)') : 'var(--text)';
+  el('power-source').textContent = isAC ? 'AC power' : 'Battery discharge';
+  pushHist('power', sp);
+  drawSparkline('spark-power', hist.power, '#ef5350');
+
+  // CPU
+  const cpu = d.cpu || {};
+  el('cpu-temp').textContent = fmt(cpu.temp_c, '°C');
+  el('cpu-temp').style.color = tempColor(cpu.temp_c);
+  el('cpu-power').textContent = fmt(cpu.power_w, ' W');
+  el('cpu-usage').textContent = fmt(cpu.usage_pct, '%');
+  el('cpu-usage').style.color = usageColor(cpu.usage_pct);
+
+  let freqText = '—';
+  if (cpu.freq_mhz != null) {
+    freqText = Math.round(cpu.freq_mhz) + ' MHz';
+    if (cpu.freq_max_mhz) freqText += ' / ' + Math.round(cpu.freq_max_mhz);
+  }
+  el('cpu-freq').textContent = freqText;
+
+  if (cpu.load_avg) {
+    el('cpu-load').textContent = cpu.load_avg.map(v => v.toFixed(2)).join('  ');
+  }
+
+  el('core-info').textContent = (cpu.core_count || '?') + 'C / ' + (cpu.thread_count || '?') + 'T';
+  pushHist('cpu', cpu.usage_pct);
+  drawSparkline('spark-cpu', hist.cpu, '#64b5f6');
+
+  // Per-core
+  const cg = el('core-grid');
+  const cores = cpu.per_core_pct || [];
+  if (cores.length > 0) {
+    // Build DOM only if child count differs
+    if (cg.children.length !== cores.length) {
+      cg.innerHTML = '';
+      cores.forEach((_, i) => {
+        const row = document.createElement('div');
+        row.className = 'core-row';
+        row.innerHTML =
+          '<span class="core-idx">' + i + '</span>' +
+          '<div class="core-track"><div class="core-fill" id="core-' + i + '"></div></div>' +
+          '<span class="core-val" id="coreval-' + i + '"></span>';
+        cg.appendChild(row);
+      });
+    }
+    cores.forEach((v, i) => {
+      const fill = el('core-' + i);
+      const val = el('coreval-' + i);
+      if (fill) {
+        fill.style.width = v + '%';
+        fill.style.background = v < 50 ? 'var(--cpu)' : v < 80 ? 'var(--yellow)' : 'var(--red)';
+      }
+      if (val) val.textContent = v.toFixed(0) + '%';
+    });
+  }
+
+  // iGPU
+  const ig = d.igpu || {};
+  el('igpu-temp').textContent = fmt(ig.temp_c, '°C');
+  el('igpu-temp').style.color = tempColor(ig.temp_c);
+  el('igpu-power').textContent = fmt(ig.power_w, ' W');
+  pushHist('igpu', ig.power_w);
+  drawSparkline('spark-igpu', hist.igpu, '#ffb74d');
+
+  // dGPU
+  const dg = d.dgpu || {};
+  const badge = el('dgpu-badge');
+  if (dg.state === 'Active') {
+    badge.textContent = '● Active';
+    badge.className = 'badge badge-active';
+  } else {
+    badge.textContent = '● Suspended';
+    badge.className = 'badge badge-suspended';
+  }
+  el('dgpu-temp').textContent = fmt(dg.temp_c, '°C');
+  el('dgpu-temp').style.color = tempColor(dg.temp_c);
+  el('dgpu-power').textContent = fmt(dg.power_w, ' W');
+  el('dgpu-util').textContent = fmt(dg.util_pct, '%');
+  if (dg.vram_used_mb != null && dg.vram_total_mb != null) {
+    el('dgpu-vram').textContent = formatMB(dg.vram_used_mb) + ' / ' + formatMB(dg.vram_total_mb);
+  } else {
+    el('dgpu-vram').textContent = '—';
+  }
+  pushHist('dgpu', dg.power_w || 0);
+  drawSparkline('spark-dgpu', hist.dgpu, '#81c784');
+
+  // Memory
+  const r = d.ram || {};
+  el('ram-text').textContent = formatMB(r.used_mb) + ' / ' + formatMB(r.total_mb);
+  el('ram-bar').style.width = (r.percent || 0) + '%';
+  el('ram-bar').style.background = usageColor(r.percent);
+  el('ram-pct').textContent = fmt(r.percent, '%', 0);
+
+  const s = d.swap || {};
+  el('swap-text').textContent = formatMB(s.used_mb) + ' / ' + formatMB(s.total_mb);
+  el('swap-bar').style.width = (s.percent || 0) + '%';
+  el('swap-pct').textContent = fmt(s.percent, '%', 0);
+
+  pushHist('ram', r.percent);
+  drawSparkline('spark-ram', hist.ram, '#ce93d8');
+
+  // Fans
+  const fans = d.fans || {};
+  const fk = Object.keys(fans);
+  const fl = el('fan-list');
+  if (fk.length > 0) {
+    fl.innerHTML = fk.map(k =>
+      '<div class="metric"><span class="metric-label">' + k + '</span>' +
+      '<span class="metric-value">' + fans[k] + '<span class="metric-unit"> RPM</span></span></div>'
+    ).join('');
+  } else {
+    fl.innerHTML = '<span class="metric-label" style="font-size:.78rem">No fan data available</span>';
+  }
+
+  // Network
+  const n = d.network || {};
+  el('net-up').textContent = formatBytes(n.sent_rate_kbps);
+  el('net-down').textContent = formatBytes(n.recv_rate_kbps);
+  el('net-total-up').textContent = formatMB(n.total_sent_mb);
+  el('net-total-down').textContent = formatMB(n.total_recv_mb);
+
+  // Disk
+  const dk = d.disk || {};
+  el('disk-read').textContent = dk.read_rate_mbps != null ? dk.read_rate_mbps.toFixed(2) + ' MB/s' : '—';
+  el('disk-write').textContent = dk.write_rate_mbps != null ? dk.write_rate_mbps.toFixed(2) + ' MB/s' : '—';
+  el('disk-usage-text').textContent =
+    (dk.used_gb != null ? dk.used_gb + ' GB / ' + dk.total_gb + ' GB' : '—');
+  el('disk-bar').style.width = (dk.usage_percent || 0) + '%';
+  el('disk-bar').style.background = usageColor(dk.usage_percent);
+  el('disk-pct').textContent = fmt(dk.usage_percent, '%', 0);
+
+  // Processes
+  const procs = d.top_processes || [];
+  const tbody = el('proc-tbody');
+  if (procs.length > 0) {
+    tbody.innerHTML = procs.map(p =>
+      '<tr>' +
+      '<td style="color:var(--text-faint)">' + p.pid + '</td>' +
+      '<td class="proc-name">' + p.name + '</td>' +
+      '<td style="text-align:right;color:' + usageColor(p.cpu_pct) + '">' + p.cpu_pct.toFixed(1) + '%</td>' +
+      '<td style="text-align:right;color:var(--text-dim)">' + formatMB(p.mem_mb) + '</td>' +
+      '</tr>'
+    ).join('');
+  } else {
+    tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-faint);text-align:center">Idle</td></tr>';
+  }
+}
+
+/* ── SSE Connection ─────────────────────────────────────────── */
+let retries = 0;
+function connect() {
+  const dot = el('status-dot');
+  const txt = el('status-text');
+
+  const src = new EventSource('/api/stream');
+
+  src.onopen = () => {
+    dot.className = 'status-dot live';
+    txt.textContent = 'Live';
+    retries = 0;
+  };
+
+  src.onmessage = (e) => {
+    try {
+      const d = JSON.parse(e.data);
+      update(d);
+    } catch(err) {
+      console.warn('Parse error:', err);
+    }
+  };
+
+  src.onerror = () => {
+    src.close();
+    dot.className = 'status-dot dead';
+    txt.textContent = 'Reconnecting…';
+    retries++;
+    const delay = Math.min(1000 * Math.pow(2, retries), 30000);
+    setTimeout(connect, delay);
+  };
+}
+
+connect();
+</script>
+</body>
+</html>

@@ -371,7 +371,6 @@
   };
   services.lact.enable = false;
   # Load nvidia driver for Xorg and Wayland
-    hardware.nvidia-container-toolkit.suppressNvidiaDriverAssertion = true;
     hardware.nvidia = {
 
     # Modesetting is required.
@@ -488,7 +487,6 @@
     '';
 
   # ── Containers ──────────────────────────────────────────────────
-  hardware.nvidia-container-toolkit.enable = true;
   virtualisation.containers.enable = true;
   virtualisation.podman = {
     enable = true;
