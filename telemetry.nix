@@ -6,18 +6,47 @@ let
     fastapi
     uvicorn
   ]);
+
+  # On-demand launcher script for the dashboard web server
+  showTelemetryScript = pkgs.writeShellScriptBin "show-telemetry" ''
+    URL="http://127.0.0.1:9999"
+
+    echo "Starting Laptop Telemetry Dashboard..."
+    systemctl --user start laptop-telemetry-dashboard
+
+    # Wait up to 3s for dashboard to respond
+    for i in {1..12}; do
+      if ${pkgs.curl}/bin/curl -s "$URL/api/snapshot" > /dev/null 2>&1; then
+        break
+      fi
+      sleep 0.25
+    done
+
+    echo "Opening Telemetry Dashboard: $URL"
+    ${pkgs.xdg-utils}/bin/xdg-open "$URL"
+  '';
+
+  # Clean script to stop the on-demand dashboard server
+  stopTelemetryScript = pkgs.writeShellScriptBin "stop-telemetry" ''
+    echo "Stopping Laptop Telemetry Dashboard..."
+    systemctl --user stop laptop-telemetry-dashboard
+    echo "Dashboard stopped. (24/7 background logger remains running)."
+  '';
 in
 {
   environment.systemPackages = with pkgs; [
     telemetryPython
     lm_sensors
     pciutils
+    showTelemetryScript
+    stopTelemetryScript
   ];
 
-  # System service running as root to access RAPL power counters (/sys/class/powercap)
-  # and hwmon sensors, binding to 127.0.0.1:9999.
-  systemd.services.laptop-telemetry = {
-    description = "Laptop Telemetry — Unified Collector & Real-Time Dashboard";
+  # 24/7 Background System Logger Daemon
+  # Runs continuously as root to monitor RAPL energy counters, hwmon sensors,
+  # and dGPU power safely without waking it from D3cold deep sleep.
+  systemd.services.laptop-telemetry-logger = {
+    description = "Laptop Telemetry — 24/7 Background System Logger Daemon";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
     path = [
@@ -26,23 +55,38 @@ in
     ] ++ lib.optional (config.hardware.nvidia ? package && config.hardware.nvidia.package != null) config.hardware.nvidia.package;
 
     environment = {
-      TELEMETRY_HTML_PATH = "${./scripts/index.html}";
-      TELEMETRY_HOST = "127.0.0.1";
-      TELEMETRY_PORT = "9999";
-      TELEMETRY_POLL_INTERVAL = "2.0";
-      TELEMETRY_POWER_THRESH_W = "15.0";
-      TELEMETRY_CPU_THRESH_PCT = "45.0";
+      TELEMETRY_LOG_INTERVAL = "5.0";
+      TELEMETRY_LOG_DIR = "/var/log/telemetry";
+      TELEMETRY_RUN_DIR = "/run/telemetry";
     };
 
     serviceConfig = {
-      ExecStart = "${telemetryPython}/bin/python3 ${./scripts/laptop-telemetry.py}";
+      ExecStart = "${telemetryPython}/bin/python3 ${./scripts/laptop-telemetry-logger.py}";
       Restart = "always";
       RestartSec = "5s";
+      RuntimeDirectory = "telemetry";
+      LogsDirectory = "telemetry";
     };
   };
 
-  # Hook the dashboard up to your ZSH aliases
+  # On-Demand Dashboard User Service (NOT enabled at boot)
+  # Started by running `show-telemetry`, stopped by `stop-telemetry`
+  systemd.user.services.laptop-telemetry-dashboard = {
+    description = "Laptop Telemetry — On-Demand Dashboard Web Server";
+    serviceConfig = {
+      ExecStart = "${telemetryPython}/bin/python3 ${./scripts/laptop-telemetry-server.py}";
+      Restart = "no";
+    };
+    environment = {
+      TELEMETRY_HTML_PATH = "${./scripts/index.html}";
+      TELEMETRY_LOG_DIR = "/var/log/telemetry";
+      TELEMETRY_RUN_DIR = "/run/telemetry";
+    };
+  };
+
+  # Hook the scripts up to ZSH aliases
   programs.zsh.shellAliases = {
-    show-telemetry = "xdg-open http://localhost:9999";
+    show-telemetry = "${showTelemetryScript}/bin/show-telemetry";
+    stop-telemetry = "${stopTelemetryScript}/bin/stop-telemetry";
   };
 }
