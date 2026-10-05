@@ -750,7 +750,7 @@
     alsa-tools
     libv4l
     spotdl
-
+    playerctl
     # Communication & office
     telegram-desktop
     vesktop
