@@ -40,8 +40,14 @@ LATEST_JSON = Path(os.getenv("TELEMETRY_RUN_DIR", "/run/telemetry")) / "latest.j
 DB_PATH = Path(os.getenv("TELEMETRY_LOG_DIR", "/var/log/telemetry")) / "telemetry.db"
 LOG_DIRS = [
     Path(os.getenv("TELEMETRY_LOG_DIR", "/var/log/telemetry")),
-    Path("/home/steve/.local/share/telemetry"),
+    Path(os.getenv("TELEMETRY_USER_LOG_DIR", "/home/steve/.local/share/telemetry")),
 ]
+
+# Mirrors the logger's TELEMETRY_HIGH_POWER_W so the log-viewer filters and the
+# Power_Flag column always agree on what "high power" means.
+HIGH_POWER_W = float(os.getenv("TELEMETRY_HIGH_POWER_W", "20.0"))
+# Above this a reading is treated as a sensor/timing artefact (see logger).
+MAX_PLAUSIBLE_W = float(os.getenv("TELEMETRY_MAX_PLAUSIBLE_W", "400.0"))
 
 app = FastAPI(title="Laptop Telemetry Server", docs_url=None, redoc_url=None)
 app.add_middleware(
@@ -62,6 +68,13 @@ def _get_live_data() -> dict:
             # Check staleness: if younger than 30s, use it
             mtime = LATEST_JSON.stat().st_mtime
             data["_logger_active"] = (time.time() - mtime) < 15.0
+            # Backfill for a logger build that predates the high-power fields.
+            data.setdefault("high_power", {
+                "is_high": (data.get("system_power_w") or 0) >= HIGH_POWER_W,
+                "threshold_w": HIGH_POWER_W,
+                "streak_samples": 0,
+                "processes": [],
+            })
             return data
         except Exception:
             pass
@@ -83,6 +96,7 @@ def _get_live_data() -> dict:
         "system_power_w": None,
         "fans": {},
         "top_processes": [],
+        "high_power": {"is_high": False, "threshold_w": HIGH_POWER_W, "streak_samples": 0, "processes": []},
         "network": {"sent_rate_kbps": 0, "recv_rate_kbps": 0, "total_sent_mb": 0, "total_recv_mb": 0},
         "disk": {"read_rate_mbps": 0, "write_rate_mbps": 0, "usage_percent": 0, "used_gb": 0, "total_gb": 0},
     }
@@ -169,16 +183,18 @@ async def get_trends(range: str = "24h"):
                 AVG(battery_pct) as avg_battery_pct,
                 SUM(CASE WHEN dgpu_state = 'Active' THEN 1 ELSE 0 END) as dgpu_active_count,
                 SUM(CASE WHEN dgpu_state = 'Suspended' THEN 1 ELSE 0 END) as dgpu_suspended_count,
-                SUM(CASE WHEN battery_state = 'Battery' OR battery_state = 'Discharging' THEN 1 ELSE 0 END) as on_battery_count
+                SUM(CASE WHEN battery_state = 'Battery' OR battery_state = 'Discharging' THEN 1 ELSE 0 END) as on_battery_count,
+                SUM(CASE WHEN system_power_w >= ? THEN 1 ELSE 0 END) as high_power_count
             FROM telemetry
             WHERE timestamp >= ?
-        """, (start_epoch,))
+        """, (HIGH_POWER_W, start_epoch))
         summary_row = cur.fetchone()
 
         total_samples = summary_row["count"] or 0
         dgpu_active_pct = 0.0
         if total_samples > 0:
             dgpu_active_pct = round(((summary_row["dgpu_active_count"] or 0) / total_samples) * 100, 1)
+        high_power_count = summary_row["high_power_count"] or 0
 
         summary = {
             "sample_count": total_samples,
@@ -187,14 +203,19 @@ async def get_trends(range: str = "24h"):
             "min_power_w": round(summary_row["min_power_w"] or 0.0, 1),
             "avg_cpu_temp": round(summary_row["avg_cpu_temp"] or 0.0, 1),
             "max_cpu_temp": round(summary_row["max_cpu_temp"] or 0.0, 1),
-            "avg_igpu_temp": round(summary_row["avg_igpu_temp"] or 0.0, 1) if summary_row["avg_igpu_temp"] is not None else None,
-            "max_igpu_temp": round(summary_row["max_igpu_temp"] or 0.0, 1) if summary_row["max_igpu_temp"] is not None else None,
-            "avg_dgpu_temp": round(summary_row["avg_dgpu_temp"] or 0.0, 1) if summary_row["avg_dgpu_temp"] is not None else None,
-            "max_dgpu_temp": round(summary_row["max_dgpu_temp"] or 0.0, 1) if summary_row["max_dgpu_temp"] is not None else None,
+            "avg_igpu_temp": round(summary_row["avg_igpu_temp"], 1) if summary_row["avg_igpu_temp"] is not None else None,
+            "max_igpu_temp": round(summary_row["max_igpu_temp"], 1) if summary_row["max_igpu_temp"] is not None else None,
+            "avg_dgpu_temp": round(summary_row["avg_dgpu_temp"], 1) if summary_row["avg_dgpu_temp"] is not None else None,
+            "max_dgpu_temp": round(summary_row["max_dgpu_temp"], 1) if summary_row["max_dgpu_temp"] is not None else None,
             "avg_cpu_usage": round(summary_row["avg_cpu_usage"] or 0.0, 1),
             "dgpu_active_pct": dgpu_active_pct,
             "dgpu_suspended_pct": round(100.0 - dgpu_active_pct, 1),
+            "on_battery_pct": round(((summary_row["on_battery_count"] or 0) / total_samples) * 100, 1) if total_samples else 0.0,
+            "high_power_w": HIGH_POWER_W,
+            "high_power_count": high_power_count,
+            "high_power_pct": round((high_power_count / total_samples) * 100, 1) if total_samples else 0.0,
         }
+
 
         # Downsampled time series via bucket aggregation
         cur.execute(f"""
@@ -236,7 +257,7 @@ async def get_trends(range: str = "24h"):
             })
 
         conn.close()
-        return {"range": range_param, "summary": summary, "series": series}
+        return {"range": str(range), "summary": summary, "series": series}
 
     except Exception as exc:
         print(f"[trends] sqlite error: {exc}", flush=True)
@@ -274,7 +295,10 @@ def _trends_from_csv(start_epoch: int, now_epoch: int, bucket_size: int) -> dict
 
                 bucket = (epoch // bucket_size) * bucket_size
                 if bucket not in buckets:
-                    buckets[bucket] = {"p": [], "c_t": [], "c_u": [], "b": [], "ig_t": [], "dg_t": []}
+                    buckets[bucket] = {
+                        "p": [], "cpu_p": [], "igpu_p": [], "dgpu_p": [],
+                        "c_t": [], "c_u": [], "b": [], "ig_t": [], "dg_t": [],
+                    }
 
                 p_val = float(row.get("System_Power_W") or row.get("Power_Draw_W") or 0)
                 ct_val = float(row.get("CPU_Temp_C") or 0)
@@ -287,38 +311,44 @@ def _trends_from_csv(start_epoch: int, now_epoch: int, bucket_size: int) -> dict
                 buckets[bucket]["c_t"].append(ct_val)
                 buckets[bucket]["c_u"].append(cu_val)
                 buckets[bucket]["b"].append(b_val)
+                for key, col in (("cpu_p", "CPU_Power_W"), ("igpu_p", "iGPU_Power_W"), ("dgpu_p", "dGPU_Power_W")):
+                    raw = row.get(col)
+                    if raw:
+                        buckets[bucket][key].append(float(raw))
                 if igt_val > 0:
                     buckets[bucket]["ig_t"].append(igt_val)
                 if dgt_val > 0:
                     buckets[bucket]["dg_t"].append(dgt_val)
 
+        def _avg(vals):
+            return sum(vals) / len(vals) if vals else None
+
         series = []
         all_p, all_ct, all_igt, all_dgt = [], [], [], []
+        high_power_samples = 0
         for b in sorted(buckets.keys()):
             dt = datetime.fromtimestamp(b)
-            p_avg = sum(buckets[b]["p"]) / len(buckets[b]["p"]) if buckets[b]["p"] else 0
-            ct_avg = sum(buckets[b]["c_t"]) / len(buckets[b]["c_t"]) if buckets[b]["c_t"] else 0
-            cu_avg = sum(buckets[b]["c_u"]) / len(buckets[b]["c_u"]) if buckets[b]["c_u"] else 0
-            b_avg = sum(buckets[b]["b"]) / len(buckets[b]["b"]) if buckets[b]["b"] else 0
-            igt_avg = sum(buckets[b]["ig_t"]) / len(buckets[b]["ig_t"]) if buckets[b]["ig_t"] else None
-            dgt_avg = sum(buckets[b]["dg_t"]) / len(buckets[b]["dg_t"]) if buckets[b]["dg_t"] else None
-
             all_p.extend(buckets[b]["p"])
             all_ct.extend(buckets[b]["c_t"])
             all_igt.extend(buckets[b]["ig_t"])
             all_dgt.extend(buckets[b]["dg_t"])
+            high_power_samples += sum(1 for v in buckets[b]["p"] if v >= HIGH_POWER_W)
 
             series.append({
                 "epoch": b,
                 "time_label": dt.strftime("%H:%M"),
-                "system_power_w": round(p_avg, 1),
-                "cpu_temp_c": round(ct_avg, 1),
-                "cpu_usage_pct": round(cu_avg, 1),
-                "battery_pct": round(b_avg, 1),
-                "igpu_temp_c": round(igt_avg, 1) if igt_avg is not None else None,
-                "dgpu_temp_c": round(dgt_avg, 1) if dgt_avg is not None else None,
+                "system_power_w": round(_avg(buckets[b]["p"]), 1) if _avg(buckets[b]["p"]) is not None else None,
+                "cpu_power_w": round(_avg(buckets[b]["cpu_p"]), 1) if _avg(buckets[b]["cpu_p"]) is not None else None,
+                "igpu_power_w": round(_avg(buckets[b]["igpu_p"]), 1) if _avg(buckets[b]["igpu_p"]) is not None else None,
+                "dgpu_power_w": round(_avg(buckets[b]["dgpu_p"]), 1) if _avg(buckets[b]["dgpu_p"]) is not None else None,
+                "cpu_temp_c": round(_avg(buckets[b]["c_t"]), 1) if _avg(buckets[b]["c_t"]) is not None else None,
+                "cpu_usage_pct": round(_avg(buckets[b]["c_u"]), 1) if _avg(buckets[b]["c_u"]) is not None else None,
+                "battery_pct": round(_avg(buckets[b]["b"]), 1) if _avg(buckets[b]["b"]) is not None else None,
+                "igpu_temp_c": round(_avg(buckets[b]["ig_t"]), 1) if _avg(buckets[b]["ig_t"]) is not None else None,
+                "dgpu_temp_c": round(_avg(buckets[b]["dg_t"]), 1) if _avg(buckets[b]["dg_t"]) is not None else None,
             })
 
+        high_pct = round((high_power_samples / len(all_p)) * 100, 1) if all_p else 0.0
         summary = {
             "sample_count": len(all_p),
             "avg_power_w": round(sum(all_p) / len(all_p), 1) if all_p else 0,
@@ -330,6 +360,9 @@ def _trends_from_csv(start_epoch: int, now_epoch: int, bucket_size: int) -> dict
             "max_igpu_temp": round(max(all_igt), 1) if all_igt else None,
             "avg_dgpu_temp": round(sum(all_dgt) / len(all_dgt), 1) if all_dgt else None,
             "max_dgpu_temp": round(max(all_dgt), 1) if all_dgt else None,
+            "high_power_w": HIGH_POWER_W,
+            "high_power_count": high_power_samples,
+            "high_power_pct": high_pct,
         }
         return {"range": "csv", "summary": summary, "series": series}
     except Exception as exc:
@@ -378,6 +411,55 @@ def _resolve_log_path(filename: str) -> Path | None:
     return None
 
 
+def _to_float(raw) -> float | None:
+    if raw is None:
+        return None
+    raw = str(raw).strip()
+    if not raw or raw.lower() in ("none", "nan", "null"):
+        return None
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+# Preset predicates for the log viewer's filter dropdown. Each takes the parsed
+# row plus the active high-power threshold and returns True when the row matches.
+LOG_FILTERS = {
+    "all": lambda row, hp: True,
+    "high_power": lambda row, hp: (_to_float(row.get("System_Power_W")) or 0.0) >= hp,
+    "on_battery": lambda row, hp: row.get("Battery_State", "") in ("Battery", "Discharging"),
+    "on_ac": lambda row, hp: "Plugged" in row.get("Battery_State", "") or row.get("Battery_State", "") in ("AC", "Charging", "Full"),
+    "dgpu_active": lambda row, hp: row.get("dGPU_State", "") == "Active",
+    "dgpu_suspended": lambda row, hp: row.get("dGPU_State", "") == "Suspended",
+    "cpu_hot": lambda row, hp: (_to_float(row.get("CPU_Temp_C")) or 0.0) >= 80.0,
+    "cpu_busy": lambda row, hp: (_to_float(row.get("CPU_Usage_Pct")) or 0.0) >= 50.0,
+    "spike": lambda row, hp: (_to_float(row.get("System_Power_W")) or 0.0) > MAX_PLAUSIBLE_W,
+}
+
+LOG_FILTER_LABELS = {
+    "all": "All entries",
+    "high_power": "High power usage",
+    "on_battery": "On battery",
+    "on_ac": "On AC power",
+    "dgpu_active": "dGPU active",
+    "dgpu_suspended": "dGPU suspended",
+    "cpu_hot": "CPU hot (>= 80°C)",
+    "cpu_busy": "CPU busy (>= 50%)",
+    "spike": "Implausible spikes (> 400W)",
+}
+
+
+@app.get("/api/logs/filters")
+async def list_log_filters():
+    """Expose the available log filters and the active threshold to the UI."""
+    return {
+        "filters": [{"id": k, "label": v} for k, v in LOG_FILTER_LABELS.items()],
+        "high_power_w": HIGH_POWER_W,
+        "max_plausible_w": MAX_PLAUSIBLE_W,
+    }
+
+
 @app.get("/api/logs/{filename}")
 async def read_log_records(
     filename: str,
@@ -385,46 +467,76 @@ async def read_log_records(
     page_size: int = 50,
     q: str = "",
     sort_order: str = "desc",
+    filter: str = "all",
+    min_power: float | None = None,
+    max_power: float | None = None,
+    high_power_w: float | None = None,
 ):
     """
-    Paginate, search, and parse rows from a specific CSV log file.
+    Paginate, search, filter and parse rows from a specific CSV log file.
     """
     path = _resolve_log_path(filename)
     if not path:
         raise HTTPException(status_code=404, detail=f"Log file '{filename}' not found.")
 
+    page = max(1, int(page or 1))
+    page_size = min(500, max(1, int(page_size or 50)))
+
+    filter_id = str(filter or "all").strip().lower()
+    if filter_id not in LOG_FILTERS:
+        raise HTTPException(status_code=400, detail=f"Unknown filter '{filter}'. Valid: {', '.join(LOG_FILTERS)}")
+    threshold = float(high_power_w) if high_power_w is not None else HIGH_POWER_W
+    predicate = LOG_FILTERS[filter_id]
+
     try:
         rows = []
+        matched_high = 0
         with open(path, "r", encoding="utf-8", errors="ignore") as f:
             reader = csv.DictReader(f)
             columns = reader.fieldnames or []
             search_lower = str(q or "").strip().lower()
 
             for row in reader:
+                power = _to_float(row.get("System_Power_W"))
+                if min_power is not None and (power is None or power < min_power):
+                    continue
+                if max_power is not None and (power is None or power > max_power):
+                    continue
+                if not predicate(row, threshold):
+                    continue
                 if search_lower:
                     row_str = " ".join(str(v) for v in row.values()).lower()
                     if search_lower not in row_str:
                         continue
+                if power is not None and power >= threshold:
+                    matched_high += 1
                 rows.append(row)
 
         total_rows = len(rows)
-        if sort_order == "desc":
+        if sort_order != "asc":
             rows.reverse()
 
         total_pages = max(1, (total_rows + page_size - 1) // page_size)
         start_idx = (page - 1) * page_size
-        end_idx = start_idx + page_size
-        paginated_rows = rows[start_idx:end_idx]
+        paginated_rows = rows[start_idx:start_idx + page_size]
 
         return {
             "filename": filename,
             "columns": columns,
+            "filter": filter_id,
+            "filter_label": LOG_FILTER_LABELS[filter_id],
+            "high_power_w": threshold,
+            "min_power": min_power,
+            "max_power": max_power,
             "total_rows": total_rows,
+            "high_power_rows": matched_high,
             "total_pages": total_pages,
             "page": page,
             "page_size": page_size,
             "rows": paginated_rows,
         }
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to read log file: {exc}")
 
@@ -435,6 +547,95 @@ async def download_log(filename: str):
     if not path:
         raise HTTPException(status_code=404, detail="Log file not found.")
     return FileResponse(path, filename=path.name, media_type="text/csv")
+
+
+# ── High Power Attribution ───────────────────────────────────────
+@app.get("/api/high-power")
+async def get_high_power(hours: int = 24, limit: int = 20):
+    """
+    Aggregated high-power episodes with the processes recorded alongside them.
+
+    Reads the SQLite time-series (which stores one row per 5s sample). Returns
+    the worst contiguous episodes plus a per-process leaderboard, so the log
+    viewer can answer "what was burning the watts" instead of only "when".
+    """
+    hours = min(24 * 30, max(1, int(hours or 24)))
+    limit = min(200, max(1, int(limit or 20)))
+    start_epoch = int(time.time()) - hours * 3600
+
+    if not DB_PATH.exists():
+        raise HTTPException(status_code=503, detail="Telemetry database not available yet.")
+
+    try:
+        conn = sqlite3.connect(DB_PATH, timeout=5)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT iso_time, timestamp, system_power_w, cpu_power_w, igpu_power_w,
+                   dgpu_power_w, cpu_usage_pct, cpu_temp_c, battery_state,
+                   dgpu_state, top_process, high_power_processes
+            FROM telemetry
+            WHERE timestamp >= ? AND system_power_w >= ?
+            ORDER BY system_power_w DESC
+            LIMIT ?
+        """, (start_epoch, HIGH_POWER_W, limit))
+        events = [
+            {
+                "iso_time": r["iso_time"],
+                "timestamp": r["timestamp"],
+                "system_power_w": round(r["system_power_w"], 2) if r["system_power_w"] is not None else None,
+                "cpu_power_w": r["cpu_power_w"],
+                "igpu_power_w": r["igpu_power_w"],
+                "dgpu_power_w": r["dgpu_power_w"],
+                "cpu_usage_pct": r["cpu_usage_pct"],
+                "cpu_temp_c": r["cpu_temp_c"],
+                "battery_state": r["battery_state"],
+                "dgpu_state": r["dgpu_state"],
+                "top_process": r["top_process"],
+                "processes": [p for p in (r["high_power_processes"] or "").split("; ") if p],
+            }
+            for r in cur.fetchall()
+        ]
+
+        # Which processes keep showing up during high-power samples?
+        cur.execute("""
+            SELECT high_power_processes FROM telemetry
+            WHERE timestamp >= ? AND system_power_w >= ? AND high_power_processes IS NOT NULL
+            ORDER BY timestamp DESC LIMIT 5000
+        """, (start_epoch, HIGH_POWER_W))
+        counts = {}
+        for r in cur.fetchall():
+            for proc in (r["high_power_processes"] or "").split("; "):
+                proc = proc.strip()
+                if not proc:
+                    continue
+                name = proc.rsplit(":", 1)[0]
+                counts[name] = counts.get(name, 0) + 1
+
+        cur.execute("""
+            SELECT COUNT(*) as total,
+                   SUM(CASE WHEN system_power_w >= ? THEN 1 ELSE 0 END) as high
+            FROM telemetry WHERE timestamp >= ?
+        """, (HIGH_POWER_W, start_epoch))
+        counts_row = cur.fetchone()
+        total = counts_row["total"] or 0
+        high = counts_row["high"] or 0
+        conn.close()
+
+        return {
+            "hours": hours,
+            "high_power_w": HIGH_POWER_W,
+            "total_samples": total,
+            "high_power_samples": high,
+            "high_power_pct": round((high / total) * 100, 1) if total else 0.0,
+            "top_offenders": [
+                {"name": name, "samples": count} for name, count in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[:20]
+            ],
+            "events": events,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to query high power events: {exc}")
 
 
 # ── Entrypoint ──────────────────────────────────────────────────

@@ -469,13 +469,58 @@ body {
 }
 .chart-canvas-wrap {
   width: 100%;
-  height: 220px;
+  height: 240px;
   position: relative;
 }
 canvas.trend-canvas {
   width: 100%;
   height: 100%;
   display: block;
+  cursor: crosshair;
+}
+
+/* Live hover readout — always visible per chart, filled in on mouse-over */
+.chart-readout {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  margin-top: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  min-height: 1.9rem;
+}
+.chart-readout .ro-time {
+  color: var(--text-dim);
+  font-weight: 600;
+  margin-right: 0.25rem;
+}
+.chart-readout .ro-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-dim);
+}
+.chart-readout .ro-item b {
+  color: var(--text);
+  font-weight: 600;
+}
+.chart-readout .ro-hint {
+  color: var(--text-dim);
+  opacity: 0.65;
+  font-style: italic;
+}
+
+/* Threshold marker on the power chart */
+.chart-threshold-note {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--yellow);
+  opacity: 0.85;
 }
 
 /* ── Tab 3: Log Viewer ─────────────────────────────────────── */
@@ -582,11 +627,146 @@ canvas.trend-canvas {
   color: var(--text-dim);
 }
 
+/* ── Log filters ────────────────────────────────────────────── */
+.log-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.filter-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.35rem 0.75rem;
+  font-size: 0.78rem;
+  font-family: var(--sans);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.filter-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+.filter-btn.active {
+  background: rgba(239, 83, 80, 0.22);
+  color: #fff;
+  border-color: rgba(239, 83, 80, 0.5);
+  font-weight: 600;
+}
+.filter-btn.active.filter-ok {
+  background: rgba(100, 181, 246, 0.2);
+  border-color: rgba(100, 181, 246, 0.45);
+  font-weight: 500;
+}
+.filter-btn .fb-count {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  opacity: 0.75;
+  margin-left: 4px;
+}
+
+.log-range-group {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+.log-range-group input {
+  width: 5.5rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8rem;
+  font-family: var(--mono);
+  border-radius: var(--radius-sm);
+  outline: none;
+}
+.log-range-group input:focus { border-color: var(--border-focus); }
+.log-range-group input.invalid { border-color: var(--red); }
+
+.log-filter-summary {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+.log-filter-summary b { color: var(--yellow); }
+
+.logs-table tbody tr.row-high td {
+  background: rgba(239, 83, 80, 0.09);
+}
+.logs-table tbody tr.row-high:hover td {
+  background: rgba(239, 83, 80, 0.16);
+}
+.logs-table tbody tr.row-high td:first-child {
+  box-shadow: inset 3px 0 0 var(--red);
+}
+.cell-power-high {
+  color: var(--red);
+  font-weight: 700;
+}
+.cell-flag {
+  color: var(--red);
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* ── High power attribution panel ───────────────────────────── */
+.high-power-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+.offender-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.offender-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+.offender-row .of-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.offender-row .of-count {
+  color: var(--yellow);
+  font-weight: 700;
+}
+.hp-event {
+  padding: 0.5rem 0.65rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--red);
+  border-radius: var(--radius-sm);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  margin-bottom: 0.45rem;
+}
+.hp-event .hp-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 3px;
+}
+.hp-event .hp-watts { color: var(--red); font-weight: 700; }
+.hp-event .hp-procs { color: var(--text-dim); word-break: break-word; }
+
 /* Tooltip */
 .chart-tooltip {
   position: fixed;
   pointer-events: none;
-  background: rgba(13, 18, 33, 0.96);
+  background: rgba(13, 18, 33, 0.97);
   border: 1px solid var(--border-focus);
   border-radius: var(--radius-sm);
   padding: 0.6rem 0.8rem;
@@ -598,8 +778,32 @@ canvas.trend-canvas {
   z-index: 9999;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  min-width: 150px;
+  min-width: 170px;
+  max-width: 320px;
 }
+.tt-head {
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.tt-head .tt-ago { color: var(--text-dim); font-weight: 400; font-size: 0.7rem; }
+.tt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  margin: 2px 0;
+}
+.tt-row .tt-label { display: inline-flex; align-items: center; gap: 5px; }
+.tt-row .tt-swatch { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.tt-row .tt-val { color: #fff; font-weight: 700; }
+.tt-val.is-high { color: var(--red); }
+.tt-row.is-high .tt-label { color: var(--yellow); }
 </style>
 </head>
 <body>
@@ -630,13 +834,17 @@ canvas.trend-canvas {
   <!-- Top Stat Strip -->
   <div class="live-overview-strip">
     <!-- Power Draw -->
-    <div class="stat-card">
+    <div class="stat-card" id="card-system-power">
       <div class="stat-title">System Power <span id="strip-power-src" class="chip chip-gray">N/A</span></div>
       <div class="stat-val"><span id="strip-power">—</span> <span class="stat-unit">W</span></div>
       <div class="stat-sub">
         <span>CPU: <strong id="strip-cpu-w" style="color:var(--cpu);">—</strong> W</span>
         <span>iGPU: <strong id="strip-igpu-w" style="color:var(--igpu);">—</strong> W</span>
         <span>dGPU: <strong id="strip-dgpu-w" style="color:var(--dgpu);">—</strong> W</span>
+      </div>
+      <div class="stat-sub" id="strip-high-power" style="display:none; margin-top:6px; padding-top:6px; border-top:1px solid var(--border);">
+        <span class="chip chip-red" id="strip-high-chip">HIGH POWER</span>
+        <span id="strip-high-streak" style="color:var(--red); font-family:var(--mono); font-size:0.75rem;"></span>
       </div>
     </div>
 
@@ -824,6 +1032,11 @@ canvas.trend-canvas {
       <div class="stat-val"><span id="trend-dgpu-sleep">—</span> <span class="stat-unit">%</span></div>
       <div class="stat-sub">Active: <strong id="trend-dgpu-active">—</strong> %</div>
     </div>
+    <div class="stat-card">
+      <div class="stat-title">High Power Events <span id="trend-hp-threshold" class="chip chip-yellow">≥ — W</span></div>
+      <div class="stat-val" style="color:var(--red);"><span id="trend-hp-count">—</span> <span class="stat-unit">samples</span></div>
+      <div class="stat-sub"><strong id="trend-hp-pct">—</strong> % of window</div>
+    </div>
   </div>
 
   <!-- Chart 1: Power Draw Trends -->
@@ -835,10 +1048,14 @@ canvas.trend-canvas {
         <span class="legend-item"><span class="legend-dot" style="background:#64b5f6;"></span> CPU</span>
         <span class="legend-item"><span class="legend-dot" style="background:#ffb74d;"></span> iGPU</span>
         <span class="legend-item"><span class="legend-dot" style="background:#81c784;"></span> dGPU</span>
+        <span class="legend-item chart-threshold-note" id="power-threshold-note">— high power</span>
       </div>
     </div>
     <div class="chart-canvas-wrap">
       <canvas id="chart-power" class="trend-canvas"></canvas>
+    </div>
+    <div class="chart-readout" id="ro-chart-power">
+      <span class="ro-hint">Hover the graph to read exact values</span>
     </div>
   </div>
 
@@ -855,6 +1072,9 @@ canvas.trend-canvas {
     <div class="chart-canvas-wrap">
       <canvas id="chart-thermals" class="trend-canvas"></canvas>
     </div>
+    <div class="chart-readout" id="ro-chart-thermals">
+      <span class="ro-hint">Hover the graph to read exact values</span>
+    </div>
   </div>
 
   <!-- Chart 3: Battery & CPU Usage -->
@@ -869,6 +1089,9 @@ canvas.trend-canvas {
     <div class="chart-canvas-wrap">
       <canvas id="chart-batt" class="trend-canvas"></canvas>
     </div>
+    <div class="chart-readout" id="ro-chart-batt">
+      <span class="ro-hint">Hover the graph to read exact values</span>
+    </div>
   </div>
 </div>
 
@@ -882,11 +1105,41 @@ canvas.trend-canvas {
       <select id="select-log-file" class="log-select"></select>
     </div>
 
-    <input type="text" id="log-search-input" class="log-input log-search" placeholder="Search logs (e.g. Battery, High Power, 0.00)..." />
+    <input type="text" id="log-search-input" class="log-input log-search" placeholder="Search logs (text match across all columns)..." />
 
     <div style="display:flex; gap:0.5rem;">
       <button class="btn" id="btn-refresh-logs">🔄 Refresh</button>
       <button class="btn btn-primary" id="btn-download-log">⬇️ Download CSV</button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="logs-toolbar">
+    <div class="log-filter-group" id="log-filter-buttons">
+      <button class="filter-btn active filter-ok" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="high_power">🔴 High power</button>
+      <button class="filter-btn" data-filter="on_battery">🔋 On battery</button>
+      <button class="filter-btn" data-filter="on_ac">🔌 On AC</button>
+      <button class="filter-btn" data-filter="dgpu_active">🎮 dGPU active</button>
+      <button class="filter-btn" data-filter="cpu_hot">🌡️ CPU hot</button>
+      <button class="filter-btn" data-filter="cpu_busy">⚙️ CPU busy</button>
+      <button class="filter-btn" data-filter="spike">⚡ Spikes</button>
+    </div>
+
+    <div class="log-range-group">
+      <label for="log-min-power">System Power</label>
+      <input type="number" id="log-min-power" placeholder="min" step="0.5" min="0" />
+      <span>–</span>
+      <input type="number" id="log-max-power" placeholder="max" step="0.5" min="0" />
+      <span>W</span>
+      <button class="btn" id="btn-clear-filters">✕ Clear</button>
+    </div>
+  </div>
+
+  <div class="logs-toolbar" style="justify-content:space-between;">
+    <div class="log-filter-summary" id="log-filter-summary">Loading...</div>
+    <div style="font-size:0.78rem; color:var(--text-dim); font-family:var(--mono);">
+      High power threshold: <strong id="log-hp-threshold" style="color:var(--yellow);">—</strong> W
     </div>
   </div>
 
@@ -905,6 +1158,37 @@ canvas.trend-canvas {
         <button class="btn" id="btn-page-prev">◀ Prev</button>
         <span id="log-page-num" style="font-family:var(--mono);">Page 1 / 1</span>
         <button class="btn" id="btn-page-next">Next ▶</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- High Power Attribution -->
+  <div class="chart-card" style="margin-top:1.25rem;">
+    <div class="chart-header">
+      <div class="chart-title">🔍 High Power Attribution — top offenders</div>
+      <div style="display:flex; align-items:center; gap:0.6rem;">
+        <span style="font-size:0.78rem; color:var(--text-dim);" id="hp-window">last 24h</span>
+        <select id="hp-hours" class="log-select" style="font-size:0.78rem; padding:0.3rem 0.6rem;">
+          <option value="1">1 hour</option>
+          <option value="6">6 hours</option>
+          <option value="24" selected>24 hours</option>
+          <option value="168">7 days</option>
+          <option value="720">30 days</option>
+        </select>
+      </div>
+    </div>
+    <div class="high-power-grid">
+      <div>
+        <div class="panel-title" style="margin-bottom:0.6rem; font-size:0.82rem;">Processes seen during high power</div>
+        <div class="offender-list" id="hp-offenders">
+          <div style="color:var(--text-dim); font-size:0.78rem;">Loading...</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel-title" style="margin-bottom:0.6rem; font-size:0.82rem;">Worst individual samples</div>
+        <div id="hp-events">
+          <div style="color:var(--text-dim); font-size:0.78rem;">Loading...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -935,6 +1219,20 @@ tabButtons.forEach(btn => {
 /* ── Utilities ─────────────────────────────────────────────── */
 const el = id => document.getElementById(id);
 const fmt = (v, unit='', dec=1) => (v != null && !isNaN(v)) ? Number(v).toFixed(dec) + unit : '—';
+
+// Mirrors TELEMETRY_HIGH_POWER_W / TELEMETRY_MAX_PLAUSIBLE_W on the server, but
+// refreshed from the API on first load so one place owns the number.
+let HIGH_POWER_W = 20.0;
+let MAX_PLAUSIBLE_W = 400.0;
+
+fetch('/api/logs/filters')
+  .then(r => r.ok ? r.json() : null)
+  .then(d => {
+    if (!d) return;
+    HIGH_POWER_W = d.high_power_w;
+    MAX_PLAUSIBLE_W = d.max_plausible_w;
+  })
+  .catch(() => {});
 
 function tempColor(c) {
   if (c == null) return 'var(--text)';
@@ -1003,10 +1301,28 @@ function renderLive(d) {
   const sp = d.system_power_w;
   el('strip-power').textContent = fmt(sp, '', 1);
   el('strip-power-src').textContent = isAC ? 'AC Power' : 'Battery Discharge';
-  el('strip-power-src').className = 'chip ' + (isAC ? 'chip-blue' : 'chip-yellow');
   el('strip-cpu-w').textContent = fmt(d.cpu?.power_w, '', 1);
   el('strip-igpu-w').textContent = fmt(d.igpu?.power_w, '', 1);
   el('strip-dgpu-w').textContent = fmt(d.dgpu?.power_w, '', 1);
+
+  // High-power badge (threshold owned by the server / logger)
+  const hp = d.high_power || {};
+  const isHigh = hp.is_high != null
+    ? hp.is_high
+    : (sp != null && sp >= (hp.threshold_w != null ? hp.threshold_w : HIGH_POWER_W));
+  const hpBox = el('strip-high-power');
+  if (hpBox) {
+    hpBox.style.display = isHigh ? 'flex' : 'none';
+    if (isHigh) {
+      const threshold = hp.threshold_w != null ? hp.threshold_w : HIGH_POWER_W;
+      el('strip-high-chip').textContent = `HIGH POWER ≥ ${threshold}W`;
+      const streak = hp.streak_samples || 0;
+      el('strip-high-streak').textContent = streak > 1
+        ? `for ${streak} samples (${Math.round(streak * 5 / 60)} min)`
+        : 'first sample';
+    }
+  }
+  el('strip-power').style.color = isHigh ? 'var(--red)' : '';
 
   // CPU
   const cpu = d.cpu || {};
@@ -1159,6 +1475,13 @@ function renderTrends(data) {
   el('trend-dgpu-sleep').textContent = fmt(sum.dgpu_suspended_pct, '', 1);
   el('trend-dgpu-active').textContent = fmt(sum.dgpu_active_pct, '', 1);
 
+  const hpThreshold = sum.high_power_w != null ? sum.high_power_w : HIGH_POWER_W;
+  el('trend-hp-threshold').textContent = `≥ ${hpThreshold} W`;
+  el('trend-hp-count').textContent = sum.high_power_count != null ? sum.high_power_count : '—';
+  el('trend-hp-pct').textContent = sum.high_power_pct != null ? sum.high_power_pct : '—';
+  HIGH_POWER_W = hpThreshold;
+  el('power-threshold-note').textContent = `dashed = ${hpThreshold}W high-power line`;
+
   const series = data.series || [];
   el('trends-status').textContent = `Data points: ${series.length}`;
 
@@ -1168,7 +1491,7 @@ function renderTrends(data) {
     { key: 'cpu_power_w', color: '#64b5f6', label: 'CPU' },
     { key: 'igpu_power_w', color: '#ffb74d', label: 'iGPU' },
     { key: 'dgpu_power_w', color: '#81c784', label: 'dGPU' },
-  ], 'W');
+  ], 'W', { threshold: hpThreshold, highlightKey: 'system_power_w' });
 
   drawMultiLineChart('chart-thermals', series, [
     { key: 'cpu_temp_c', color: '#64b5f6', label: 'CPU' },
@@ -1183,47 +1506,60 @@ function renderTrends(data) {
 }
 
 /* Canvas Chart Renderer with Interactive Hover */
-function drawMultiLineChart(canvasId, data, seriesDefs, unit) {
+const CHART_FONT = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const CHART_PAD = { l: 46, r: 22, t: 18, b: 30 };
+
+function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
   const canvas = el(canvasId);
   if (!canvas) return;
+  const readout = el('ro-' + canvasId);
   const dpr = window.devicePixelRatio || 1;
   const rect = canvas.parentElement.getBoundingClientRect();
-  canvas.width = rect.width * dpr;
-  canvas.height = rect.height * dpr;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
 
   const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const W = rect.width;
   const H = rect.height;
+  const tooltip = el('chart-tooltip');
 
-  const padL = 40, padR = 20, padT = 20, padB = 30;
-  const plotW = W - padL - padR;
-  const plotH = H - padT - padB;
+  const padL = CHART_PAD.l, padR = CHART_PAD.r, padT = CHART_PAD.t, padB = CHART_PAD.b;
+  const plotW = Math.max(1, W - padL - padR);
+  const plotH = Math.max(1, H - padT - padB);
 
-  // Find min/max across all lines
-  let maxVal = 10;
+  // Autoscale, but ignore values above the plausibility ceiling so a single
+  // sensor artefact can't flatten every other series into the baseline.
+  let maxVal = opts.minMax || 10;
   seriesDefs.forEach(sd => {
     data.forEach(d => {
       const v = d[sd.key];
-      if (v != null && !isNaN(v) && v > maxVal) maxVal = v;
+      if (v != null && !isNaN(v) && v > maxVal && v <= MAX_PLAUSIBLE_W) maxVal = v;
     });
   });
-  maxVal = Math.ceil(maxVal * 1.15);
+  if (opts.threshold) maxVal = Math.max(maxVal, opts.threshold * 1.2);
+  maxVal = niceCeil(maxVal * 1.15);
+
+  const xAt = i => padL + (data.length > 1 ? (i / (data.length - 1)) * plotW : plotW / 2);
+  const yAt = v => padT + plotH - (v / maxVal) * plotH;
 
   function render(hoverIdx = -1) {
     ctx.clearRect(0, 0, W, H);
     if (!data || data.length < 2) {
       ctx.fillStyle = '#7a84a8';
-      ctx.font = '12px var(--sans)';
+      ctx.font = CHART_FONT;
       ctx.textAlign = 'center';
       ctx.fillText('Collecting historical data points...', W / 2, H / 2);
+      if (readout) readout.innerHTML = '<span class="ro-hint">Not enough data yet</span>';
       return;
     }
 
-    // Grid lines
+    // Grid lines + Y labels
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
     ctx.lineWidth = 1;
     const gridSteps = 4;
+    ctx.font = CHART_FONT;
+    ctx.textAlign = 'right';
     for (let i = 0; i <= gridSteps; i++) {
       const y = padT + (plotH / gridSteps) * i;
       ctx.beginPath();
@@ -1231,48 +1567,75 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit) {
       ctx.lineTo(W - padR, y);
       ctx.stroke();
 
-      const val = Math.round(maxVal - (maxVal / gridSteps) * i);
+      const val = maxVal - (maxVal / gridSteps) * i;
       ctx.fillStyle = '#6b7280';
-      ctx.font = '10px var(--mono)';
-      ctx.textAlign = 'right';
-      ctx.fillText(val + unit, padL - 8, y + 3);
+      ctx.fillText(formatTick(val) + unit, padL - 8, y + 4);
     }
 
-    // Draw X labels
+    // X labels
     const xStep = Math.max(1, Math.floor(data.length / 6));
     ctx.textAlign = 'center';
     for (let i = 0; i < data.length; i += xStep) {
-      const x = padL + (i / (data.length - 1)) * plotW;
       ctx.fillStyle = '#6b7280';
-      ctx.fillText(data[i].time_label || '', x, H - 10);
+      ctx.fillText(data[i].time_label || '', xAt(i), H - 10);
     }
 
-    // Draw series lines
+    // High-power threshold line
+    if (opts.threshold && opts.threshold <= maxVal) {
+      const ty = yAt(opts.threshold);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 213, 79, 0.65)';
+      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(padL, ty);
+      ctx.lineTo(W - padR, ty);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255, 213, 79, 0.9)';
+      ctx.font = CHART_FONT;
+      ctx.textAlign = 'right';
+      ctx.fillText(opts.threshold + unit, W - padR - 2, ty - 5);
+    }
+
+    // Shade regions above the threshold so high-power windows are obvious
+    if (opts.threshold && opts.highlightKey) {
+      const ty = yAt(opts.threshold);
+      ctx.fillStyle = 'rgba(239, 83, 80, 0.10)';
+      let runStart = null;
+      for (let i = 0; i <= data.length; i++) {
+        const v = i < data.length ? data[i][opts.highlightKey] : null;
+        const over = v != null && !isNaN(v) && v >= opts.threshold;
+        if (over && runStart === null) runStart = i;
+        if (!over && runStart !== null) {
+          ctx.fillRect(xAt(runStart), padT, Math.max(1, xAt(i - 1) - xAt(runStart)), Math.max(1, ty - padT));
+          runStart = null;
+        }
+      }
+    }
+
+    // Series lines
     seriesDefs.forEach(sd => {
       ctx.beginPath();
       ctx.strokeStyle = sd.color;
       ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
       let started = false;
 
       data.forEach((d, i) => {
         const v = d[sd.key];
         if (v == null || isNaN(v)) return;
-        const x = padL + (i / (data.length - 1)) * plotW;
-        const y = padT + plotH - (v / maxVal) * plotH;
-
-        if (!started) {
-          ctx.moveTo(x, y);
-          started = true;
-        } else {
-          ctx.lineTo(x, y);
-        }
+        const x = xAt(i);
+        const y = yAt(v);
+        if (!started) { ctx.moveTo(x, y); started = true; }
+        else ctx.lineTo(x, y);
       });
       ctx.stroke();
     });
 
     // Hover crosshair and markers
     if (hoverIdx >= 0 && hoverIdx < data.length) {
-      const hx = padL + (hoverIdx / (data.length - 1)) * plotW;
+      const hx = xAt(hoverIdx);
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.setLineDash([4, 4]);
@@ -1285,7 +1648,7 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit) {
       seriesDefs.forEach(sd => {
         const v = data[hoverIdx][sd.key];
         if (v == null || isNaN(v)) return;
-        const hy = padT + plotH - (v / maxVal) * plotH;
+        const hy = yAt(v);
 
         ctx.beginPath();
         ctx.arc(hx, hy, 4.5, 0, Math.PI * 2);
@@ -1294,29 +1657,54 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit) {
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        // Value label pinned next to the marker
+        ctx.font = 'bold ' + CHART_FONT;
+        ctx.textAlign = hx > W - padR - 60 ? 'right' : 'left';
+        ctx.fillStyle = sd.color;
+        ctx.strokeStyle = 'rgba(0,0,0,0.75)';
+        ctx.lineWidth = 3;
+        const lx = hx + (ctx.textAlign === 'left' ? 8 : -8);
+        const ly = Math.min(Math.max(hy, padT + 8), padT + plotH - 2);
+        ctx.strokeText(v.toFixed(1), lx, ly - 6);
+        ctx.fillText(v.toFixed(1), lx, ly - 6);
       });
     }
   }
 
+  function resetHover() {
+    render(-1);
+    if (tooltip) tooltip.style.display = 'none';
+    if (readout) {
+      const last = data[data.length - 1];
+      readout.innerHTML = readoutHTML(last, unit, seriesDefs, opts, true);
+    }
+  }
+
+  canvas._chartData = data;
+  canvas._seriesDefs = seriesDefs;
+  canvas._chartUnit = unit;
+  canvas._chartOpts = opts;
+  canvas._renderFn = render;
+
   render();
 
-  // Attach interactive hover listener once per canvas
+  // Attach interactive listeners once per canvas
   if (!canvas._hasHover) {
     canvas._hasHover = true;
-    const tooltip = el('chart-tooltip');
 
-    canvas.addEventListener('mousemove', e => {
+    const handleMove = e => {
       if (!canvas._chartData || canvas._chartData.length < 2) return;
       const cRect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - cRect.left;
       const cData = canvas._chartData;
       const sDefs = canvas._seriesDefs;
       const u = canvas._chartUnit;
+      const o = canvas._chartOpts || {};
       const pW = cRect.width - padL - padR;
 
-      if (mouseX < padL || mouseX > cRect.width - padR) {
-        if (canvas._renderFn) canvas._renderFn(-1);
-        if (tooltip) tooltip.style.display = 'none';
+      if (mouseX < padL - 2 || mouseX > cRect.width - padR + 2) {
+        resetHover();
         return;
       }
 
@@ -1326,49 +1714,108 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit) {
 
       if (canvas._renderFn) canvas._renderFn(idx);
 
+      if (readout) readout.innerHTML = readoutHTML(pt, u, sDefs, o, false);
+
       if (tooltip) {
-        let tipHtml = `<div style="font-weight:700; color:#fff; margin-bottom:5px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:3px;">🕒 ${pt.time_label || 'Time'}</div>`;
+        let tipHtml = `<div class="tt-head"><span>🕒 ${escapeHtml(pt.time_label || 'Time')}</span>`;
+        const ageH = pt.epoch ? ((Date.now() / 1000 - pt.epoch) / 3600) : null;
+        tipHtml += ageH != null && ageH >= 0 ? `<span class="tt-ago">${formatAgo(ageH)}</span>` : '';
+        tipHtml += '</div>';
+
         sDefs.forEach(sd => {
           const val = pt[sd.key];
-          const valStr = (val != null && !isNaN(val)) ? val.toFixed(1) + ' ' + u : '—';
-          tipHtml += `<div style="display:flex; justify-content:space-between; gap:12px; margin:2px 0;">
-            <span style="color:${sd.color}">● ${sd.label}:</span>
-            <strong style="color:#fff">${valStr}</strong>
+          const valid = val != null && !isNaN(val);
+          const isHigh = valid && o.highlightKey === sd.key && o.threshold != null && val >= o.threshold;
+          const valStr = valid ? val.toFixed(1) + ' ' + u : '—';
+          tipHtml += `<div class="tt-row${isHigh ? ' is-high' : ''}">
+            <span class="tt-label"><span class="tt-swatch" style="background:${sd.color}"></span>${escapeHtml(sd.label)}</span>
+            <span class="tt-val${isHigh ? ' is-high' : ''}">${escapeHtml(valStr)}${isHigh ? ' ⚠' : ''}</span>
           </div>`;
         });
+        if (o.threshold != null) {
+          tipHtml += `<div class="tt-row" style="margin-top:5px; border-top:1px solid rgba(255,255,255,0.1); padding-top:4px;">
+            <span class="tt-label" style="color:#ffd54f;">High power threshold</span>
+            <span class="tt-val" style="color:#ffd54f;">${o.threshold} ${u}</span>
+          </div>`;
+        }
+        if (pt.ram_used_mb != null) {
+          tipHtml += `<div class="tt-row"><span class="tt-label" style="color:#7a84a8;">RAM</span><span class="tt-val" style="color:#7a84a8;">${Math.round(pt.ram_used_mb)} MB</span></div>`;
+        }
         tooltip.innerHTML = tipHtml;
         tooltip.style.display = 'block';
 
-        const tipW = tooltip.offsetWidth || 150;
-        let left = e.clientX + 14;
-        if (left + tipW > window.innerWidth - 10) {
-          left = e.clientX - tipW - 14;
-        }
+        const tipW = tooltip.offsetWidth || 170;
+        const tipH = tooltip.offsetHeight || 100;
+        let left = e.clientX + 16;
+        if (left + tipW > window.innerWidth - 10) left = e.clientX - tipW - 16;
+        left = Math.max(8, left);
+        let top = e.clientY - tipH / 2;
+        top = Math.min(Math.max(8, top), window.innerHeight - tipH - 8);
         tooltip.style.left = left + 'px';
-        tooltip.style.top = (e.clientY - 20) + 'px';
+        tooltip.style.top = top + 'px';
       }
-    });
+    };
 
-    canvas.addEventListener('mouseleave', () => {
-      if (canvas._renderFn) canvas._renderFn(-1);
-      if (tooltip) tooltip.style.display = 'none';
-    });
+    canvas.addEventListener('mousemove', handleMove);
+    canvas.addEventListener('mouseleave', resetHover);
+    canvas.addEventListener('touchstart', e => {
+      if (e.touches.length) { handleMove(e.touches[0]); e.preventDefault(); }
+    }, { passive: false });
+    canvas.addEventListener('touchmove', e => {
+      if (e.touches.length) { handleMove(e.touches[0]); e.preventDefault(); }
+    }, { passive: false });
+    canvas.addEventListener('touchend', resetHover);
   }
 
-  canvas._chartData = data;
-  canvas._seriesDefs = seriesDefs;
-  canvas._chartUnit = unit;
-  canvas._renderFn = render;
+  // Populate the readout with the newest sample before any hover
+  if (readout && data && data.length) {
+    readout.innerHTML = readoutHTML(data[data.length - 1], unit, seriesDefs, opts, true);
+  }
+}
+
+function readoutHTML(pt, unit, seriesDefs, opts, isLatest) {
+  if (!pt) return '<span class="ro-hint">Hover the graph to read exact values</span>';
+  let html = `<span class="ro-time">${isLatest ? 'Latest' : 'At'} ${escapeHtml(pt.time_label || '—')}</span>`;
+  seriesDefs.forEach(sd => {
+    const v = pt[sd.key];
+    const valid = v != null && !isNaN(v);
+    const isHigh = valid && opts.highlightKey === sd.key && opts.threshold != null && v >= opts.threshold;
+    html += `<span class="ro-item"><span class="legend-dot" style="background:${sd.color}"></span>${escapeHtml(sd.label)} <b style="color:${isHigh ? 'var(--red)' : 'var(--text)'}">${valid ? v.toFixed(1) + unit : '—'}</b></span>`;
+  });
+  return html;
+}
+
+function niceCeil(v) {
+  if (v <= 0) return 10;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  const step = norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 2.5 ? 2.5 : norm <= 5 ? 5 : 10;
+  return step * mag;
+}
+
+function formatTick(v) {
+  if (v >= 100) return String(Math.round(v));
+  if (v >= 10) return v.toFixed(0);
+  return v.toFixed(1);
+}
+
+function formatAgo(hours) {
+  if (hours < 1) return Math.round(hours * 60) + 'm ago';
+  if (hours < 48) return hours.toFixed(1) + 'h ago';
+  return Math.round(hours / 24) + 'd ago';
 }
 
 /* ── Tab 3: Log Viewer ─────────────────────────────────────── */
 let currentLogFile = '';
 let currentLogPage = 1;
 let currentLogSearch = '';
+let currentLogFilter = 'all';
+let currentLogMinPower = null;
+let currentLogMaxPower = null;
 
-el('btn-refresh-logs').addEventListener('click', () => loadLogRecords(currentLogFile, currentLogPage));
+el('btn-refresh-logs').addEventListener('click', () => loadLogRecords(currentLogFile, 1));
 el('btn-page-prev').addEventListener('click', () => { if (currentLogPage > 1) loadLogRecords(currentLogFile, currentLogPage - 1); });
-el('btn-page-next').addEventListener('click', () => { loadLogRecords(currentLogFile, currentLogPage + 1); });
+el('btn-page-next').addEventListener('click', () => loadLogRecords(currentLogFile, currentLogPage + 1));
 
 let searchDebounce = null;
 el('log-search-input').addEventListener('input', e => {
@@ -1382,6 +1829,7 @@ el('log-search-input').addEventListener('input', e => {
 el('select-log-file').addEventListener('change', e => {
   currentLogFile = e.target.value;
   loadLogRecords(currentLogFile, 1);
+  loadHighPower();
 });
 
 el('btn-download-log').addEventListener('click', () => {
@@ -1389,6 +1837,67 @@ el('btn-download-log').addEventListener('click', () => {
     window.location.href = `/api/logs/${encodeURIComponent(currentLogFile)}/download`;
   }
 });
+
+/* Filter buttons */
+el('log-filter-buttons').addEventListener('click', e => {
+  const btn = e.target.closest('.filter-btn');
+  if (!btn) return;
+  currentLogFilter = btn.dataset.filter;
+  currentLogPage = 1;
+  document.querySelectorAll('#log-filter-buttons .filter-btn').forEach(b => {
+    b.classList.toggle('active', b === btn);
+    b.classList.toggle('filter-ok', b.dataset.filter === 'all');
+  });
+  loadLogRecords(currentLogFile, 1);
+});
+
+/* Numeric power range */
+let rangeDebounce = null;
+const readPowerRange = () => {
+  const minRaw = el('log-min-power').value.trim();
+  const maxRaw = el('log-max-power').value.trim();
+  const min = minRaw === '' ? null : parseFloat(minRaw);
+  const max = maxRaw === '' ? null : parseFloat(maxRaw);
+
+  el('log-min-power').classList.toggle('invalid', min !== null && (!isFinite(min) || min < 0));
+  el('log-max-power').classList.toggle('invalid', max !== null && (!isFinite(max) || max < 0));
+  if ((min !== null && !isFinite(min)) || (max !== null && !isFinite(max))) return null;
+
+  currentLogMinPower = min;
+  currentLogMaxPower = max;
+  return { min, max };
+};
+
+['log-min-power', 'log-max-power'].forEach(id => {
+  el(id).addEventListener('input', () => {
+    clearTimeout(rangeDebounce);
+    rangeDebounce = setTimeout(() => {
+      if (readPowerRange()) {
+        currentLogPage = 1;
+        loadLogRecords(currentLogFile, 1);
+      }
+    }, 400);
+  });
+});
+
+el('btn-clear-filters').addEventListener('click', () => {
+  currentLogFilter = 'all';
+  currentLogMinPower = null;
+  currentLogMaxPower = null;
+  currentLogSearch = '';
+  el('log-min-power').value = '';
+  el('log-max-power').value = '';
+  el('log-min-power').classList.remove('invalid');
+  el('log-max-power').classList.remove('invalid');
+  el('log-search-input').value = '';
+  document.querySelectorAll('#log-filter-buttons .filter-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.filter === 'all');
+  });
+  currentLogPage = 1;
+  loadLogRecords(currentLogFile, 1);
+});
+
+el('hp-hours').addEventListener('change', loadHighPower);
 
 async function loadLogFileList() {
   try {
@@ -1411,30 +1920,52 @@ async function loadLogFileList() {
       currentLogFile = logs[0].filename;
     }
     sel.value = currentLogFile;
-    loadLogRecords(currentLogFile, 1);
+    await loadLogRecords(currentLogFile, 1);
+    loadHighPower();
   } catch (err) {
     console.error('Failed to list log files:', err);
   }
 }
 
-async function loadLogRecords(filename, page=1) {
+async function loadLogRecords(filename, page = 1) {
   if (!filename) return;
   const tbody = el('logs-tbody');
   tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:1.5rem; color:var(--text-dim);">Loading records...</td></tr>';
 
   try {
-    const q = encodeURIComponent(currentLogSearch);
-    const res = await fetch(`/api/logs/${encodeURIComponent(filename)}?page=${page}&page_size=50&q=${q}`);
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: '50',
+      q: currentLogSearch || '',
+      filter: currentLogFilter,
+    });
+    if (currentLogMinPower != null) params.set('min_power', String(currentLogMinPower));
+    if (currentLogMaxPower != null) params.set('max_power', String(currentLogMaxPower));
+
+    const res = await fetch(`/api/logs/${encodeURIComponent(filename)}?${params}`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Request failed');
+    }
     const data = await res.json();
 
     currentLogPage = data.page;
+    HIGH_POWER_W = data.high_power_w || HIGH_POWER_W;
+    el('log-hp-threshold').textContent = HIGH_POWER_W;
+
     el('log-page-num').textContent = `Page ${data.page} / ${data.total_pages || 1}`;
-    const start = (data.page - 1) * data.page_size + 1;
+    const start = data.total_rows > 0 ? (data.page - 1) * data.page_size + 1 : 0;
     const end = Math.min(data.page * data.page_size, data.total_rows);
     el('log-page-info').textContent = data.total_rows > 0 ? `${start} - ${end} of ${data.total_rows}` : '0 of 0';
-
     el('btn-page-prev').disabled = data.page <= 1;
     el('btn-page-next').disabled = data.page >= data.total_pages;
+
+    const bits = [`filter: <b>${escapeHtml(data.filter_label)}</b>`];
+    if (currentLogMinPower != null) bits.push(`≥ ${currentLogMinPower}W`);
+    if (currentLogMaxPower != null) bits.push(`≤ ${currentLogMaxPower}W`);
+    if (currentLogSearch) bits.push(`search: "${escapeHtml(currentLogSearch)}"`);
+    bits.push(`high-power rows: <b>${data.high_power_rows || 0}</b>`);
+    el('log-filter-summary').innerHTML = bits.join(' &nbsp;·&nbsp; ');
 
     // Build Table Header
     const cols = data.columns || [];
@@ -1443,24 +1974,74 @@ async function loadLogRecords(filename, page=1) {
     // Build Table Body
     const rows = data.rows || [];
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-dim);">No matching log entries found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-dim);">No matching log entries found — try clearing filters</td></tr>';
       return;
     }
 
-    tbody.innerHTML = rows.map(r => `
-      <tr>
+    const threshold = data.high_power_w || HIGH_POWER_W;
+    tbody.innerHTML = rows.map(r => {
+      const power = parseFloat(r.System_Power_W);
+      const isHigh = isFinite(power) && power >= threshold;
+      const isSpike = isFinite(power) && power > MAX_PLAUSIBLE_W;
+
+      return `<tr class="${isHigh ? 'row-high' : ''}">
         ${cols.map(c => {
           let val = r[c] || '';
+          if (c === 'Power_Flag') {
+            return `<td><span class="cell-flag">${escapeHtml(val)}</span></td>`;
+          }
+          if (c === 'System_Power_W' || c === 'CPU_Power_W') {
+            const p = parseFloat(val);
+            if (isFinite(p) && (p >= threshold || p > MAX_PLAUSIBLE_W)) {
+              return `<td class="cell-power-high">${escapeHtml(val)}</td>`;
+            }
+          }
           if (c === 'Power_Status' || c === 'Battery_State' || c === 'dGPU_State') {
-            const badgeClass = val === 'Normal' || val.includes('Plugged') || val === 'AC' || val === 'Suspended' ? 'chip-green' : val.includes('High') ? 'chip-red' : 'chip-yellow';
+            const badgeClass = val === 'Normal' || val.includes('Plugged') || val === 'AC' || val === 'Suspended' || val === 'Full' ? 'chip-green' : val.includes('High') ? 'chip-red' : 'chip-yellow';
             return `<td><span class="chip ${badgeClass}">${escapeHtml(val)}</span></td>`;
+          }
+          if (c === 'High_Power_Processes' && val) {
+            return `<td title="${escapeHtml(val)}" style="max-width:340px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(val)}</td>`;
           }
           return `<td>${escapeHtml(val)}</td>`;
         }).join('')}
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
   } catch (err) {
-    tbody.innerHTML = `<tr><td colspan="12" style="color:var(--red); text-align:center; padding:1.5rem;">Error loading log records: ${err}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="12" style="color:var(--red); text-align:center; padding:1.5rem;">Error loading log records: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+/* ── High Power Attribution ─────────────────────────────────── */
+async function loadHighPower() {
+  const hours = el('hp-hours') ? el('hp-hours').value : '24';
+  el('hp-window').textContent = hours === '1' ? 'last hour' : `last ${hours}h`;
+  try {
+    const res = await fetch(`/api/high-power?hours=${encodeURIComponent(hours)}&limit=15`);
+    if (!res.ok) throw new Error('unavailable');
+    const data = await res.json();
+
+    const offenders = data.top_offenders || [];
+    el('hp-offenders').innerHTML = offenders.length
+      ? offenders.map(o => `<div class="offender-row">
+           <span class="of-name" title="${escapeHtml(o.name)}">${escapeHtml(o.name)}</span>
+           <span class="of-count">${o.samples}</span>
+         </div>`).join('')
+      : '<div style="color:var(--text-dim); font-size:0.78rem;">No high-power samples in this window.</div>';
+
+    const events = data.events || [];
+    el('hp-events').innerHTML = events.length
+      ? events.map(e => `<div class="hp-event">
+           <div class="hp-top">
+             <span>${escapeHtml((e.iso_time || '').replace('T', ' ').slice(0, 19))}</span>
+             <span class="hp-watts">${e.system_power_w != null ? e.system_power_w.toFixed(1) + ' W' : '—'}</span>
+           </div>
+           <div class="hp-procs">${escapeHtml(e.processes.length ? e.processes.join(' · ') : (e.top_process || 'no process data'))}</div>
+         </div>`).join('')
+      : '<div style="color:var(--text-dim); font-size:0.78rem;">No high-power samples in this window.</div>';
+  } catch (err) {
+    el('hp-offenders').innerHTML = '<div style="color:var(--text-dim); font-size:0.78rem;">High-power data unavailable (needs the SQLite log; new data will appear as it is collected).</div>';
+    el('hp-events').innerHTML = '';
   }
 }
 
