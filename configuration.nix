@@ -708,7 +708,8 @@
     #n8n
     codex
 	tesseract
-
+	python313Packages.paddleocr 
+	
     # Wayland / niri desktop ecosystem
     niri
     xwayland-satellite
