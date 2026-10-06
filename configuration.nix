@@ -708,8 +708,7 @@
     #n8n
     codex
 	tesseract
-	python313Packages.paddleocr 
-	
+	python313Packages.rapidocr-onnxruntime 	
     # Wayland / niri desktop ecosystem
     niri
     xwayland-satellite
