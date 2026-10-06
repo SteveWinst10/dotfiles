@@ -707,6 +707,7 @@
     antigravity-cli
     #n8n
     codex
+	tesseract
 
     # Wayland / niri desktop ecosystem
     niri
