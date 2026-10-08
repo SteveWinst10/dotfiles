@@ -43,9 +43,13 @@ LOG_DIRS = [
     Path(os.getenv("TELEMETRY_USER_LOG_DIR", "/home/steve/.local/share/telemetry")),
 ]
 
-# Mirrors the logger's TELEMETRY_HIGH_POWER_W so the log-viewer filters and the
+# Mirrors the logger's split thresholds so the log-viewer filters and the
 # Power_Flag column always agree on what "high power" means.
-HIGH_POWER_W = float(os.getenv("TELEMETRY_HIGH_POWER_W", "20.0"))
+HIGH_POWER_W_BATTERY = float(os.getenv("TELEMETRY_HIGH_POWER_W_BATTERY", "20.0"))
+HIGH_POWER_W_AC      = float(os.getenv("TELEMETRY_HIGH_POWER_W_AC",      "60.0"))
+# For historical queries that mix both power sources, use the lower (battery)
+# threshold so no high-power event is ever missed.
+HIGH_POWER_W = HIGH_POWER_W_BATTERY
 # Above this a reading is treated as a sensor/timing artefact (see logger).
 MAX_PLAUSIBLE_W = float(os.getenv("TELEMETRY_MAX_PLAUSIBLE_W", "400.0"))
 
@@ -69,9 +73,13 @@ def _get_live_data() -> dict:
             mtime = LATEST_JSON.stat().st_mtime
             data["_logger_active"] = (time.time() - mtime) < 15.0
             # Backfill for a logger build that predates the high-power fields.
+            # Determine threshold based on current power source.
+            batt = data.get("battery") or {}
+            _on_battery = batt.get("state") in ("Battery", "Discharging")
+            _threshold = HIGH_POWER_W_BATTERY if _on_battery else HIGH_POWER_W_AC
             data.setdefault("high_power", {
-                "is_high": (data.get("system_power_w") or 0) >= HIGH_POWER_W,
-                "threshold_w": HIGH_POWER_W,
+                "is_high": (data.get("system_power_w") or 0) >= _threshold,
+                "threshold_w": _threshold,
                 "streak_samples": 0,
                 "processes": [],
             })
@@ -96,7 +104,7 @@ def _get_live_data() -> dict:
         "system_power_w": None,
         "fans": {},
         "top_processes": [],
-        "high_power": {"is_high": False, "threshold_w": HIGH_POWER_W, "streak_samples": 0, "processes": []},
+        "high_power": {"is_high": False, "threshold_w": HIGH_POWER_W_BATTERY, "streak_samples": 0, "processes": []},
         "network": {"sent_rate_kbps": 0, "recv_rate_kbps": 0, "total_sent_mb": 0, "total_recv_mb": 0},
         "disk": {"read_rate_mbps": 0, "write_rate_mbps": 0, "usage_percent": 0, "used_gb": 0, "total_gb": 0},
     }
@@ -212,6 +220,8 @@ async def get_trends(range: str = "24h"):
             "dgpu_suspended_pct": round(100.0 - dgpu_active_pct, 1),
             "on_battery_pct": round(((summary_row["on_battery_count"] or 0) / total_samples) * 100, 1) if total_samples else 0.0,
             "high_power_w": HIGH_POWER_W,
+            "high_power_w_battery": HIGH_POWER_W_BATTERY,
+            "high_power_w_ac": HIGH_POWER_W_AC,
             "high_power_count": high_power_count,
             "high_power_pct": round((high_power_count / total_samples) * 100, 1) if total_samples else 0.0,
         }
@@ -456,6 +466,8 @@ async def list_log_filters():
     return {
         "filters": [{"id": k, "label": v} for k, v in LOG_FILTER_LABELS.items()],
         "high_power_w": HIGH_POWER_W,
+        "high_power_w_battery": HIGH_POWER_W_BATTERY,
+        "high_power_w_ac": HIGH_POWER_W_AC,
         "max_plausible_w": MAX_PLAUSIBLE_W,
     }
 
@@ -626,6 +638,8 @@ async def get_high_power(hours: int = 24, limit: int = 20):
         return {
             "hours": hours,
             "high_power_w": HIGH_POWER_W,
+            "high_power_w_battery": HIGH_POWER_W_BATTERY,
+            "high_power_w_ac": HIGH_POWER_W_AC,
             "total_samples": total,
             "high_power_samples": high,
             "high_power_pct": round((high / total) * 100, 1) if total else 0.0,

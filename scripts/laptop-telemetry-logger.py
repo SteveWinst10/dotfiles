@@ -30,7 +30,11 @@ USER_LOG_DIR = Path(os.getenv("TELEMETRY_USER_LOG_DIR", "/home/steve/.local/shar
 DB_PATH = LOG_DIR / "telemetry.db"
 
 # System draw (watts) at or above which a sample is flagged as "high power".
-HIGH_POWER_W = float(os.getenv("TELEMETRY_HIGH_POWER_W", "20.0"))
+# On battery: 20 W is a meaningful threshold for a laptop draining fast.
+# On AC: 60 W — normal plugged-in idle/light use stays well below this;
+#         sustained draws above it (e.g. gaming, compile jobs) are worth flagging.
+HIGH_POWER_W_BATTERY = float(os.getenv("TELEMETRY_HIGH_POWER_W_BATTERY", "20.0"))
+HIGH_POWER_W_AC = float(os.getenv("TELEMETRY_HIGH_POWER_W_AC", "60.0"))
 # Number of processes captured in the log whenever high power is detected.
 TOP_N_HIGH_POWER = int(os.getenv("TELEMETRY_TOP_N_HIGH_POWER", "5"))
 # Hard ceiling for a believable laptop SoC draw. Anything above this is a
@@ -498,8 +502,8 @@ def _format_top_processes(procs: list[dict] | None, n: int = 5) -> str:
 _prev_net = None
 _prev_disk = None
 _prev_time = None
-# Consecutive samples at/over HIGH_POWER_W, so the log can note a sustained
-# high-power episode rather than a single-sample blip.
+# Consecutive samples at/over the active high-power threshold, so the log can
+# note a sustained high-power episode rather than a single-sample blip.
 _high_power_streak = 0
 
 
@@ -600,9 +604,10 @@ def collect_metrics() -> dict:
 
     top_procs = _get_top_processes(5)
 
-    # High-power attribution: when the draw crosses HIGH_POWER_W we snapshot the
-    # top N processes so the log can answer "what was burning the watts".
-    is_high_power = system_power is not None and system_power >= HIGH_POWER_W
+    # High-power attribution: threshold depends on power source.
+    # On battery >20 W is considered high; on AC >60 W.
+    high_power_threshold = HIGH_POWER_W_BATTERY if is_on_battery else HIGH_POWER_W_AC
+    is_high_power = system_power is not None and system_power >= high_power_threshold
     _high_power_streak = _high_power_streak + 1 if is_high_power else 0
     if is_high_power:
         high_power_procs = _get_top_processes(TOP_N_HIGH_POWER, min_cpu_pct=0.0)
@@ -648,7 +653,7 @@ def collect_metrics() -> dict:
         "top_processes": top_procs,
         "high_power": {
             "is_high": is_high_power,
-            "threshold_w": HIGH_POWER_W,
+            "threshold_w": high_power_threshold,
             "streak_samples": _high_power_streak,
             "processes": high_power_procs,
         },

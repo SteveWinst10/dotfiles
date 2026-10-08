@@ -1033,7 +1033,7 @@ canvas.trend-canvas {
       <div class="stat-sub">Active: <strong id="trend-dgpu-active">—</strong> %</div>
     </div>
     <div class="stat-card">
-      <div class="stat-title">High Power Events <span id="trend-hp-threshold" class="chip chip-yellow">≥ — W</span></div>
+      <div class="stat-title">High Power Events <span id="trend-hp-threshold" class="chip chip-yellow">Battery ≥20W / AC ≥60W</span></div>
       <div class="stat-val" style="color:var(--red);"><span id="trend-hp-count">—</span> <span class="stat-unit">samples</span></div>
       <div class="stat-sub"><strong id="trend-hp-pct">—</strong> % of window</div>
     </div>
@@ -1139,7 +1139,7 @@ canvas.trend-canvas {
   <div class="logs-toolbar" style="justify-content:space-between;">
     <div class="log-filter-summary" id="log-filter-summary">Loading...</div>
     <div style="font-size:0.78rem; color:var(--text-dim); font-family:var(--mono);">
-      High power threshold: <strong id="log-hp-threshold" style="color:var(--yellow);">—</strong> W
+      High power threshold: <strong id="log-hp-threshold" style="color:var(--yellow);">Battery ≥20W / AC ≥60W</strong>
     </div>
   </div>
 
@@ -1220,17 +1220,26 @@ tabButtons.forEach(btn => {
 const el = id => document.getElementById(id);
 const fmt = (v, unit='', dec=1) => (v != null && !isNaN(v)) ? Number(v).toFixed(dec) + unit : '—';
 
-// Mirrors TELEMETRY_HIGH_POWER_W / TELEMETRY_MAX_PLAUSIBLE_W on the server, but
-// refreshed from the API on first load so one place owns the number.
-let HIGH_POWER_W = 20.0;
+// High-power thresholds — refreshed from the API on first load so one place
+// owns the numbers. Battery and AC have different thresholds.
+let HIGH_POWER_W_BATTERY = 20.0;
+let HIGH_POWER_W_AC      = 60.0;
+let HIGH_POWER_W = HIGH_POWER_W_BATTERY; // conservative floor for mixed-source views
 let MAX_PLAUSIBLE_W = 400.0;
+
+// Helper to render the dual threshold label used across the UI
+function fmtThresholds() {
+  return `Battery ≥${HIGH_POWER_W_BATTERY}W / AC ≥${HIGH_POWER_W_AC}W`;
+}
 
 fetch('/api/logs/filters')
   .then(r => r.ok ? r.json() : null)
   .then(d => {
     if (!d) return;
-    HIGH_POWER_W = d.high_power_w;
-    MAX_PLAUSIBLE_W = d.max_plausible_w;
+    HIGH_POWER_W_BATTERY = d.high_power_w_battery ?? d.high_power_w ?? HIGH_POWER_W_BATTERY;
+    HIGH_POWER_W_AC      = d.high_power_w_ac      ?? HIGH_POWER_W_AC;
+    HIGH_POWER_W         = d.high_power_w          ?? HIGH_POWER_W;
+    MAX_PLAUSIBLE_W      = d.max_plausible_w       ?? MAX_PLAUSIBLE_W;
   })
   .catch(() => {});
 
@@ -1475,12 +1484,16 @@ function renderTrends(data) {
   el('trend-dgpu-sleep').textContent = fmt(sum.dgpu_suspended_pct, '', 1);
   el('trend-dgpu-active').textContent = fmt(sum.dgpu_active_pct, '', 1);
 
-  const hpThreshold = sum.high_power_w != null ? sum.high_power_w : HIGH_POWER_W;
-  el('trend-hp-threshold').textContent = `≥ ${hpThreshold} W`;
+  const hpBattery = sum.high_power_w_battery ?? HIGH_POWER_W_BATTERY;
+  const hpAC      = sum.high_power_w_ac      ?? HIGH_POWER_W_AC;
+  const hpThreshold = sum.high_power_w ?? HIGH_POWER_W; // lower (battery) floor used for chart
+  HIGH_POWER_W_BATTERY = hpBattery;
+  HIGH_POWER_W_AC      = hpAC;
+  HIGH_POWER_W         = hpThreshold;
+  el('trend-hp-threshold').textContent = fmtThresholds();
   el('trend-hp-count').textContent = sum.high_power_count != null ? sum.high_power_count : '—';
   el('trend-hp-pct').textContent = sum.high_power_pct != null ? sum.high_power_pct : '—';
-  HIGH_POWER_W = hpThreshold;
-  el('power-threshold-note').textContent = `dashed = ${hpThreshold}W high-power line`;
+  el('power-threshold-note').textContent = `dashed = ${hpBattery}W battery / ${hpAC}W AC`;
 
   const series = data.series || [];
   el('trends-status').textContent = `Data points: ${series.length}`;
@@ -1491,7 +1504,7 @@ function renderTrends(data) {
     { key: 'cpu_power_w', color: '#64b5f6', label: 'CPU' },
     { key: 'igpu_power_w', color: '#ffb74d', label: 'iGPU' },
     { key: 'dgpu_power_w', color: '#81c784', label: 'dGPU' },
-  ], 'W', { threshold: hpThreshold, highlightKey: 'system_power_w' });
+  ], 'W', { threshold: hpBattery, highlightKey: 'system_power_w' });
 
   drawMultiLineChart('chart-thermals', series, [
     { key: 'cpu_temp_c', color: '#64b5f6', label: 'CPU' },
@@ -1950,8 +1963,10 @@ async function loadLogRecords(filename, page = 1) {
     const data = await res.json();
 
     currentLogPage = data.page;
+    if (data.high_power_w_battery != null) HIGH_POWER_W_BATTERY = data.high_power_w_battery;
+    if (data.high_power_w_ac      != null) HIGH_POWER_W_AC      = data.high_power_w_ac;
     HIGH_POWER_W = data.high_power_w || HIGH_POWER_W;
-    el('log-hp-threshold').textContent = HIGH_POWER_W;
+    el('log-hp-threshold').textContent = fmtThresholds();
 
     el('log-page-num').textContent = `Page ${data.page} / ${data.total_pages || 1}`;
     const start = data.total_rows > 0 ? (data.page - 1) * data.page_size + 1 : 0;
