@@ -2,13 +2,19 @@
 # your system.  Help is available in the configuration.nix(5) man page
 # and in the NixOS manual (accessible by running ‘nixos-help’).
 
-{ config, pkgs, lib, inputs, ... }:
 {
-  imports =
-    [ # Include the results of the hardware scan.
-      ./hardware-configuration.nix
-      ./telemetry.nix
-    ];
+  config,
+  pkgs,
+  lib,
+  inputs,
+  ...
+}:
+{
+  imports = [
+    # Include the results of the hardware scan.
+    ./hardware-configuration.nix
+    ./telemetry.nix
+  ];
 
   # ── Nix & package management ──────────────────────────────────
   nix.optimise.automatic = true;
@@ -17,9 +23,35 @@
     dates = "weekly";
     options = "--delete-older-than 7d";
   };
-  nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  nix.settings.experimental-features = [
+    "nix-command"
+    "flakes"
+  ];
   nixpkgs.config.allowUnfree = true;
-
+  nixpkgs.overlays = [
+  (final: prev: {
+    # Create a custom environment with your specified tools
+    CustomPyEnv = prev.python313.withPackages (
+      ps: with ps; [
+        rapidocr-onnxruntime # Correct nixpkgs attribute for rapidocr-onnxruntime
+        pillow
+        pygame
+        flask
+        # Note: We omit 'pip' here because Nix environments are read-only.
+        # Use 'nix-shell' or 'venv' if you strictly need runtime pip installations.
+       ]
+     );
+   })
+   (final: prev: {
+      alsa-card-profiles = prev.alsa-card-profiles.overrideAttrs (old: {
+        postPatch = (old.postPatch or "") + ''
+          # Prevent the speaker port from being marked unavailable when headphones are plugged in
+          substituteInPlace src/modules/alsa/mixer/paths/analog-output-speaker.conf \
+            --replace-warn "state.plugged = no" "state.plugged = unknown"
+        '';
+      });
+    })
+  ];
   # ── System identity, locale & time ─────────────────────────────
   networking.hostName = "Thousand-Sunny"; # Define your hostname.
   time.timeZone = "Asia/Kolkata";
@@ -30,10 +62,12 @@
   # ── Boot, kernel & memory management ───────────────────────────
   systemd.oomd.enable = true;
   zramSwap.enable = true;
-  swapDevices = [{
-    device = "/var/lib/swapfile";
-    size = 16*1024; # 16 GiB
-  }];
+  swapDevices = [
+    {
+      device = "/var/lib/swapfile";
+      size = 16 * 1024; # 16 GiB
+    }
+  ];
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -66,16 +100,30 @@
 
     # Some LAN games specifically need these for discovery
     allowedUDPPortRanges = [
-      { from = 1714; to = 1764; } #KDE Connect
+      {
+        from = 1714;
+        to = 1764;
+      } # KDE Connect
     ];
-    allowedUDPPorts = [ 53 67 5353 53317 ]; # For mDNS (finding each other)
+    allowedUDPPorts = [
+      53
+      67
+      5353
+      53317
+    ]; # For mDNS (finding each other)
     allowedTCPPortRanges = [
-      { from = 1714; to = 1764; } #KDE Connect
+      {
+        from = 1714;
+        to = 1764;
+      } # KDE Connect
     ];
     allowedTCPPorts = [
-      53 4318 53317
-      11434 # ollama — see the Misc services section; bound to 0.0.0.0,
-            # so this exposes the API to the whole LAN, not just localhost
+      53
+      4318
+      53317
+      11434
+      # ollama — see the Misc services section; bound to 0.0.0.0,
+      # so this exposes the API to the whole LAN, not just localhost
     ];
   };
 
@@ -94,7 +142,8 @@
 
   # (disabled) local DNS/DHCP server for a lab network. Kept for reference —
   # re-enable by uncommenting if the lab network setup is needed again.
-  /*services.dnsmasq = {
+  /*
+    services.dnsmasq = {
       enable = false;
 
       # Declarative settings (translates directly into dnsmasq.conf syntax)
@@ -179,17 +228,26 @@
     isNormalUser = true;
     shell = pkgs.zsh;
     description = "Steve Winston";
-    extraGroups = [ "networkmanager" "wheel" "docker" "wireshark" "libvirtd" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+      "docker"
+      "wireshark"
+      "libvirtd"
+    ];
     packages = with pkgs; [
       kdePackages.kate
-    #  thunderbird
+      #  thunderbird
     ];
   };
   users.users.hat = {
     isNormalUser = true;
     shell = pkgs.zsh;
     description = "Rest of the Team";
-    extraGroups = [ "networkmanager" "wheel" ];
+    extraGroups = [
+      "networkmanager"
+      "wheel"
+    ];
   };
   users.defaultUserShell = pkgs.zsh;
 
@@ -225,7 +283,22 @@
   # Enable the X11 windowing system.
   # You can disable this if you're only using the Wayland session.
   # Enable the KDE Plasma Desktop Environment.
-  services.displayManager.lemurs.enable = true;
+
+  services.greetd = {
+    enable = true;
+    settings = {
+      default_session =
+        let
+          # This variable only exists inside this specific block!
+          dir = "${config.services.displayManager.sessionData.desktops}/share";
+        in
+        {
+          command = "${lib.getExe pkgs.tuigreet} --time --asterisks --user-menu --sessions ${dir}/wayland-sessions --xsessions ${dir}/xsessions";
+          user = "greeter";
+        };
+    };
+  };
+
   services.desktopManager.plasma6.enable = true;
   services.displayManager.defaultSession = lib.mkForce "niri";
   # Configure keymap in X11
@@ -277,20 +350,19 @@
     #media-session.enable = true;
   };
   programs.dconf.enable = true; # for easyeffects
-
   # **********************User Apps**********************
 
   # Spicetify
-  
+
   programs.spicetify =
-  let
-    spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.stdenv.hostPlatform.system};
-  in
-  {
+    let
+      spicePkgs = inputs.spicetify-nix.legacyPackages.${pkgs.stdenv.hostPlatform.system};
+    in
+    {
       enable = true;
-  
+
       theme = spicePkgs.themes.dribbblish;
-  	  colorScheme = "catppuccin-mocha";
+      colorScheme = "catppuccin-mocha";
       enabledExtensions = with spicePkgs.extensions; [
         adblock
         shuffle
@@ -307,14 +379,14 @@
         sidebarCustomizer
       ];
       enabledCustomApps = with spicePkgs.apps; [
-          ncsVisualizer
-          lyricsPlus
-          betterLibrary
-        ];
+        ncsVisualizer
+        lyricsPlus
+        betterLibrary
+      ];
       enabledSnippets = with spicePkgs.snippets; [
-          rotatingCoverart
-          pointer
-        ];
+        rotatingCoverart
+        pointer
+      ];
     };
 
   # ── Fonts ───────────────────────────────────────────────────────
@@ -323,9 +395,21 @@
     fontconfig = {
       enable = true;
       defaultFonts = {
-        monospace = ["Fira Code" "0xProto Nerd Font" "Lilex"];
-        sansSerif = ["Fira Code" "Lilex" "0xProto Nerd Font"];
-        serif =  ["Fira Code" "Lilex" "0xProto Nerd Font"];
+        monospace = [
+          "Fira Code"
+          "0xProto Nerd Font"
+          "Lilex"
+        ];
+        sansSerif = [
+          "Fira Code"
+          "Lilex"
+          "0xProto Nerd Font"
+        ];
+        serif = [
+          "Fira Code"
+          "Lilex"
+          "0xProto Nerd Font"
+        ];
       };
     };
 
@@ -371,13 +455,14 @@
   };
   services.lact.enable = false;
   # Load nvidia driver for Xorg and Wayland
-    hardware.nvidia = {
-
+  services.xserver.videoDrivers = [ "nvidia" ];
+  hardware.nvidia = {
+    open = true;
     # Modesetting is required.
     modesetting.enable = true;
-	powerManagement.enable = true;
-	powerManagement.finegrained = true;
-	
+    powerManagement.enable = true;
+    powerManagement.finegrained = true;
+
     # Nvidia power management. Experimental, and can cause sleep/suspend to fail.
     # Enable this if you have graphical corruption issues or application crashes after waking
     # up from sleep. This fixes it by saving the entire VRAM memory to /tmp/ instead
@@ -393,32 +478,31 @@
     # Optionally, you may need to select the appropriate driver version for your specific GPU.
     package = config.boot.kernelPackages.nvidiaPackages.latest;
   };
-  # hardware.nvidia.prime = {
-  #   offload.enable = true;
-  #   offload.enableOffloadCmd = true;
-  #   Make sure to use the correct Bus ID values for your system!
-  #   amdgpuBusId = "PCI:101:0:0";
-  #   nvidiaBusId = "PCI:100:0:0";
-  #   amdgpuBusId = "PCI:54:0:0"; For AMD GPU
-  # };
+  hardware.nvidia.prime = {
+    offload.enable = true;
+    offload.enableOffloadCmd = true;
+    amdgpuBusId = "PCI:101:0:0";
+    nvidiaBusId = "PCI:100:0:0";
+  };
   # (disabled) older nouveau-blacklisting approach, superseded by the
   # hardware.nvidia config above. Kept for reference only.
-  /* boot.extraModprobeConfig = ''
-        blacklist nouveau
-        options nouveau modeset=0
-      '';
+  /*
+    boot.extraModprobeConfig = ''
+       blacklist nouveau
+       options nouveau modeset=0
+     '';
 
-      services.udev.extraRules = ''
-        # Remove NVIDIA USB xHCI Host Controller devices, if present
-        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
-        # Remove NVIDIA USB Type-C UCSI devices, if present
-        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
-        # Remove NVIDIA Audio devices, if present
-        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
-        # Remove NVIDIA VGA/3D controller devices
-        ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
-      '';
-      boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
+     services.udev.extraRules = ''
+       # Remove NVIDIA USB xHCI Host Controller devices, if present
+       ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c0330", ATTR{power/control}="auto", ATTR{remove}="1"
+       # Remove NVIDIA USB Type-C UCSI devices, if present
+       ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x0c8000", ATTR{power/control}="auto", ATTR{remove}="1"
+       # Remove NVIDIA Audio devices, if present
+       ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x040300", ATTR{power/control}="auto", ATTR{remove}="1"
+       # Remove NVIDIA VGA/3D controller devices
+       ACTION=="add", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", ATTR{class}=="0x03[0-9]*", ATTR{power/control}="auto", ATTR{remove}="1"
+     '';
+     boot.blacklistedKernelModules = [ "nouveau" "nvidia" "nvidia_drm" "nvidia_modeset" ];
   */
 
   # ── Virtualisation & GPU passthrough (VFIO) ─────────────────────
@@ -445,46 +529,46 @@
   boot.kernelModules = [ "kvmfr" ];
   boot.extraModulePackages = [ config.boot.kernelPackages.kvmfr ];
   boot.extraModprobeConfig = ''
-      options kvmfr static_size_mb=64
-    '';
+    options kvmfr static_size_mb=64
+  '';
   services.udev.extraRules = ''
-      SUBSYSTEM=="kvmfr", OWNER="steve", GROUP="libvirtd", MODE="0660"
-    '';
+    SUBSYSTEM=="kvmfr", OWNER="steve", GROUP="libvirtd", MODE="0660"
+  '';
   system.activationScripts.libvirt-hooks.text = ''
-      mkdir -p /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin
-      mkdir -p /var/lib/libvirt/hooks/qemu.d/archlinux/release/end
-  
-      # Main hook router
-      cat <<'EOF' > /var/lib/libvirt/hooks/qemu
-      #!/run/current-system/sw/bin/bash
-      GUEST_NAME="$1"
-      HOOK_NAME="$2"
-      STATE_NAME="$3"
-      HOOKPATH="/var/lib/libvirt/hooks/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
-      if [ -f "$HOOKPATH" ]; then
-        eval "$HOOKPATH" "$@"
-      elif [ -d "$HOOKPATH" ]; then
-        for file in "$HOOKPATH"/*; do
-          [ -x "$file" ] && eval "$file" "$@"
-        done
-      fi
-      EOF
-      chmod +x /var/lib/libvirt/hooks/qemu
-  
-      # Detach NVIDIA dGPU (Runs before VM starts)
-      cat <<'EOF' > /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin/bind_vfio.sh
-      #!/run/current-system/sw/bin/bash
-      supergfxctl -m Vfio
-      EOF
-      chmod +x /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin/bind_vfio.sh
-  
-      # Reattach NVIDIA dGPU (Runs after VM shuts down)
-      cat <<'EOF' > /var/lib/libvirt/hooks/qemu.d/archlinux/release/end/revert_vfio.sh
-      #!/run/current-system/sw/bin/bash
-      supergfxctl -m Hybrid
-      EOF
-      chmod +x /var/lib/libvirt/hooks/qemu.d/archlinux/release/end/revert_vfio.sh
-    '';
+    mkdir -p /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin
+    mkdir -p /var/lib/libvirt/hooks/qemu.d/archlinux/release/end
+
+    # Main hook router
+    cat <<'EOF' > /var/lib/libvirt/hooks/qemu
+    #!/run/current-system/sw/bin/bash
+    GUEST_NAME="$1"
+    HOOK_NAME="$2"
+    STATE_NAME="$3"
+    HOOKPATH="/var/lib/libvirt/hooks/qemu.d/$GUEST_NAME/$HOOK_NAME/$STATE_NAME"
+    if [ -f "$HOOKPATH" ]; then
+      eval "$HOOKPATH" "$@"
+    elif [ -d "$HOOKPATH" ]; then
+      for file in "$HOOKPATH"/*; do
+        [ -x "$file" ] && eval "$file" "$@"
+      done
+    fi
+    EOF
+    chmod +x /var/lib/libvirt/hooks/qemu
+
+    # Detach NVIDIA dGPU (Runs before VM starts)
+    cat <<'EOF' > /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin/bind_vfio.sh
+    #!/run/current-system/sw/bin/bash
+    supergfxctl -m Vfio
+    EOF
+    chmod +x /var/lib/libvirt/hooks/qemu.d/archlinux/prepare/begin/bind_vfio.sh
+
+    # Reattach NVIDIA dGPU (Runs after VM shuts down)
+    cat <<'EOF' > /var/lib/libvirt/hooks/qemu.d/archlinux/release/end/revert_vfio.sh
+    #!/run/current-system/sw/bin/bash
+    supergfxctl -m Hybrid
+    EOF
+    chmod +x /var/lib/libvirt/hooks/qemu.d/archlinux/release/end/revert_vfio.sh
+  '';
 
   # ── Containers ──────────────────────────────────────────────────
   virtualisation.containers.enable = true;
@@ -536,11 +620,17 @@
 
   services.ollama = {
     enable = true;
-    package = pkgs.ollama;
+    package = pkgs.ollama-cuda;
     # Bound to all interfaces and reachable via the firewall rule above —
     # confirm this LAN-wide exposure is intended (vs. localhost + Tailscale).
     host = "0.0.0.0";
     port = 11434;
+    # Fine-grained power management (D3cold) keeps /dev/nvidia* absent until a
+    # CUDA client wakes the GPU.  Setting power/control to "on" for the duration
+    # of the Ollama service prevents the GPU from sleeping out from under it.
+    environmentVariables = {
+      CUDA_VISIBLE_DEVICES = "0";
+    };
   };
 
   systemd.settings = {
@@ -553,6 +643,15 @@
   services.power-profiles-daemon.enable = true;
   services.printing.browsed.enable = false;
   systemd.services.ollama.wantedBy = lib.mkForce [ ];
+  # Wake the dGPU from D3cold before Ollama starts so CUDA can attach to it.
+  # Fine-grained power management leaves the GPU suspended (no /dev/nvidia*)
+  # until a client forces the PCI device back to "on".
+  systemd.services.ollama.serviceConfig.ExecStartPre = [
+    "+/bin/sh -c 'echo on > /sys/bus/pci/devices/0000:64:00.0/power/control'"
+  ];
+  systemd.services.ollama.serviceConfig.ExecStopPost = [
+    "+/bin/sh -c 'echo auto > /sys/bus/pci/devices/0000:64:00.0/power/control'"
+  ];
   #services.auto-cpufreq.enable = true;
   # powerManagement.powertop.enable = true;
   # powerManagement.powertop.postStart = "echo 'on' > '/sys/bus/usb/devices/3-2/power/control' ";
@@ -564,15 +663,16 @@
   #environment.etc."ghidra/support/launch.properties" = {
   #   source = ./launch.properties;
   #};
-  /*programs.ghidra.package = pkgs.ghidra.overrideAttrs (old: {
-    postFixup = ''
-      substituteInPlace support/launch.properties \
-        --replace "VMARGS_LINUX=-Dsun.java2d.uiScale=1" "VMARGS_LINUX=-Dsun.java2d.uiScale=2 "
-    '';
-  });
-  programs.ghidra.package = pkgs.ghidra.override {
-    vmArgs = [ "-Dsun.java2d.uiScale=2" ];
-  };
+  /*
+    programs.ghidra.package = pkgs.ghidra.overrideAttrs (old: {
+      postFixup = ''
+        substituteInPlace support/launch.properties \
+          --replace "VMARGS_LINUX=-Dsun.java2d.uiScale=1" "VMARGS_LINUX=-Dsun.java2d.uiScale=2 "
+      '';
+    });
+    programs.ghidra.package = pkgs.ghidra.override {
+      vmArgs = [ "-Dsun.java2d.uiScale=2" ];
+    };
   */
 
   # ── System packages ─────────────────────────────────────────────
@@ -662,7 +762,9 @@
 
     # Reverse engineering / security research
     (ghidra.overrideAttrs (oldAttrs: {
-          postInstall = (oldAttrs.postInstall or "") + "ln -sf ${./launch.properties} $out/lib/ghidra/support/launch.properties";
+      postInstall =
+        (oldAttrs.postInstall or "")
+        + "ln -sf ${./launch.properties} $out/lib/ghidra/support/launch.properties";
     }))
     ida-free
     cisco-packet-tracer_9
@@ -692,12 +794,9 @@
     playwright-mcp
     cargo
     oracle-instantclient
-    python313
-    python313Packages.pygame
-    python313Packages.flask
-    python313Packages.pip
     uv
     jdk25
+    CustomPyEnv
 
     # AI / LLM tools
     opencode
@@ -707,8 +806,7 @@
     antigravity-cli
     #n8n
     codex
-	tesseract
-	python313Packages.rapidocr-onnxruntime 	
+    tesseract
     # Wayland / niri desktop ecosystem
     niri
     xwayland-satellite
@@ -731,8 +829,8 @@
     kitty
     evtest
     wev
-	grim
-	slurp
+    grim
+    slurp
     #(hyprland.overrideAttrs (oldAttrs: {version = "0.49"; src = fetchurl {
     #    url = "https://github.com/hyprwm/Hyprland/releases/download/v0.49.0/source-v0.49.0.tar.gz";
     #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
@@ -764,9 +862,9 @@
     heroic
     vulkan-tools
     (import inputs.nixpkgs-wolfssl {
-           system = "x86_64-linux";
-           config.allowUnfree = true;
-         }).rpcs3
+      system = "x86_64-linux";
+      config.allowUnfree = true;
+    }).rpcs3
     protontricks
     protonplus
     wine-wayland
@@ -785,13 +883,13 @@
     podman-compose
   ];
   environment.sessionVariables = {
-      # Force Firefox to use native Wayland instead of XWayland
-      MOZ_ENABLE_WAYLAND = "1";
-  
-      # Force Firefox to use your integrated AMD GPU (Mesa driver)
-      # instead of trying to invoke NVIDIA EGL buffers under Niri
-      DRI_PRIME = "0";
-    };
+    # Force Firefox to use native Wayland instead of XWayland
+    MOZ_ENABLE_WAYLAND = "1";
+
+    # Force Firefox to use your integrated AMD GPU (Mesa driver)
+    # instead of trying to invoke NVIDIA EGL buffers under Niri
+    DRI_PRIME = "0";
+  };
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions
