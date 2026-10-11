@@ -297,15 +297,28 @@ def _is_nvidia_awake() -> bool:
         except Exception:
             pass
 
-    # Runtime PM status can lag behind active work. An open NVIDIA GPU device
-    # node is app-agnostic evidence that a process is using the discrete GPU.
+    # The NVIDIA driver's procfs power report tracks RTD3 and VRAM state
+    # directly. Read it before falling back to open device nodes; unlike
+    # nvidia-smi, reading procfs does not wake an otherwise sleeping GPU.
+    for power_path in glob.glob("/proc/driver/nvidia/gpus/*/power"):
+        try:
+            with open(power_path) as f:
+                for line in f:
+                    label, _, value = line.partition(":")
+                    if label.strip() == "Video Memory" and value.strip().lower() == "active":
+                        return True
+        except OSError:
+            pass
+
+    # Runtime PM status can lag behind active work. CUDA clients can hold
+    # nvidiactl or nvidia-uvm without a numbered GPU descriptor, so check all
+    # NVIDIA device nodes, regardless of which application opened them.
     if found_nvidia_gpu:
         for proc_path in glob.glob("/proc/[0-9]*"):
             for fd_path in glob.glob(os.path.join(proc_path, "fd", "*")):
                 try:
                     target = os.readlink(fd_path)
-                    device = os.path.basename(target)
-                    if device.startswith("nvidia") and device[6:].isdigit():
+                    if target.startswith("/dev/nvidia"):
                         return True
                 except OSError:
                     pass
@@ -592,7 +605,7 @@ def collect_metrics() -> dict:
             system_power = round(rapl_total, 2)
         elif igpu_power is not None:
             system_power = round(igpu_power, 2)
-        if dgpu.get("power_w"):
+        if dgpu.get("power_w") is not None:
             system_power = round((system_power or 0) + dgpu["power_w"], 2)
     if system_power is not None:
         system_power = min(system_power, MAX_PLAUSIBLE_W)
