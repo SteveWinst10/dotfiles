@@ -804,6 +804,32 @@ canvas.trend-canvas {
 .tt-row .tt-val { color: #fff; font-weight: 700; }
 .tt-val.is-high { color: var(--red); }
 .tt-row.is-high .tt-label { color: var(--yellow); }
+
+/* Compact log rows with an inline full-record expansion */
+.logs-table { white-space: normal; }
+.logs-table tbody tr.log-summary-row { cursor: pointer; }
+.logs-table tbody tr.log-summary-row td { padding: 0.75rem 0.8rem; vertical-align: middle; }
+.logs-table tbody tr.log-summary-row:hover td,
+.logs-table tbody tr.log-summary-row:focus td { background: rgba(100,181,246,0.1); }
+.log-expand-cell { width: 2.5rem; text-align: center; color: var(--accent); font-size: 1rem; }
+.log-time-cell { min-width: 10.5rem; font-weight: 600; color: var(--text); }
+.log-power-cell { min-width: 6.5rem; font-weight: 700; }
+.log-summary-label { display: block; color: var(--text-faint); font: 0.68rem var(--sans); margin-bottom: 0.15rem; }
+.log-detail-row { display: none; }
+.log-detail-row.open { display: table-row; }
+.log-detail-row td { padding: 0.9rem 1rem 1rem 3.2rem !important; background: rgba(0,0,0,0.2); }
+.log-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.55rem 0.8rem; }
+.log-detail-item { border-left: 2px solid var(--border); padding: 0.35rem 0.6rem; min-width: 0; }
+.log-detail-item b { display: block; color: var(--text-dim); font: 0.68rem var(--sans); margin-bottom: 0.18rem; }
+.log-detail-item span { color: var(--text); font: 0.76rem var(--mono); overflow-wrap: anywhere; }
+.log-expand-hint { color: var(--text-dim); font-size: 0.72rem; margin-top: 0.7rem; }
+@media (max-width: 700px) {
+  .logs-table thead { display: none; }
+  .log-summary-label { display: inline; margin-right: 0.35rem; }
+  .logs-table tbody tr.log-summary-row td { padding: 0.65rem 0.55rem; }
+  .log-hide-mobile { display: none; }
+  .log-detail-row td { padding-left: 1rem !important; }
+}
 </style>
 </head>
 <body>
@@ -1055,7 +1081,7 @@ canvas.trend-canvas {
       <canvas id="chart-power" class="trend-canvas"></canvas>
     </div>
     <div class="chart-readout" id="ro-chart-power">
-      <span class="ro-hint">Hover the graph to read exact values</span>
+      <span class="ro-hint">Hover to read values · click a point to open its Log Viewer entry</span>
     </div>
   </div>
 
@@ -1440,6 +1466,33 @@ function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
 }
 
+let pendingLogJump = null;
+
+function queueLogJump(date, search, filename = '') {
+  pendingLogJump = { date, search, filename };
+  document.querySelector('.tab-btn[data-tab="logs"]').click();
+}
+
+async function jumpToLogEntry(pt) {
+  if (!pt || pt.epoch == null) return;
+  try {
+    const res = await fetch(`/api/telemetry/point?timestamp=${encodeURIComponent(pt.epoch)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'Datapoint unavailable');
+    const sample = data.sample || {};
+    const timestamp = String(sample.Timestamp || sample.iso_time || '').replace('T', ' ').slice(0, 19);
+    queueLogJump(data.log_date || timestamp.slice(0, 10), timestamp, data.log_filename || '');
+  } catch (err) {
+    // If the API is from an older running build, the chart bucket still gives
+    // us enough information to select the daily CSV and search its timestamp.
+    const date = new Date(Number(pt.epoch) * 1000);
+    const pad = n => String(n).padStart(2, '0');
+    const dateText = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    const timestamp = `${dateText} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    queueLogJump(dateText, timestamp);
+  }
+}
+
 /* ── Tab 2: Trends & Analytics ─────────────────────────────── */
 let currentTrendRange = '24h';
 const timeButtons = document.querySelectorAll('#trends-time-group .time-btn');
@@ -1551,6 +1604,7 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
     });
   });
   if (opts.threshold) maxVal = Math.max(maxVal, opts.threshold * 1.2);
+  if (unit === 'W') maxVal = Math.max(maxVal, 80 * 1.2);
   maxVal = niceCeil(maxVal * 1.15);
 
   const xAt = i => padL + (data.length > 1 ? (i / (data.length - 1)) * plotW : plotW / 2);
@@ -1593,7 +1647,7 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
       ctx.fillText(data[i].time_label || '', xAt(i), H - 10);
     }
 
-    // High-power threshold line
+    // High-power threshold line - Battery (20W)
     if (opts.threshold && opts.threshold <= maxVal) {
       const ty = yAt(opts.threshold);
       ctx.save();
@@ -1609,6 +1663,24 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
       ctx.font = CHART_FONT;
       ctx.textAlign = 'right';
       ctx.fillText(opts.threshold + unit, W - padR - 2, ty - 5);
+    }
+    // 80 W reference line for the power trend.
+    const powerReferenceW = 80;
+    if (unit === 'W' && powerReferenceW <= maxVal) {
+      const ty = yAt(powerReferenceW);
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.65)';
+      ctx.setLineDash([6, 5]);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(padL, ty);
+      ctx.lineTo(W - padR, ty);
+      ctx.stroke();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.9)';
+      ctx.font = CHART_FONT;
+      ctx.textAlign = 'right';
+      ctx.fillText(powerReferenceW + unit, W - padR - 2, ty - 5);
     }
 
     // Shade regions above the threshold so high-power windows are obvious
@@ -1699,6 +1771,9 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
   canvas._chartUnit = unit;
   canvas._chartOpts = opts;
   canvas._renderFn = render;
+  canvas.setAttribute('role', 'button');
+  canvas.setAttribute('tabindex', '0');
+  canvas.setAttribute('aria-label', 'Interactive telemetry graph. Select a point to inspect the complete raw sample.');
 
   render();
 
@@ -1778,6 +1853,27 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
       if (e.touches.length) { handleMove(e.touches[0]); e.preventDefault(); }
     }, { passive: false });
     canvas.addEventListener('touchend', resetHover);
+
+    const pointIndexFromClientX = clientX => {
+      const cRect = canvas.getBoundingClientRect();
+      const mouseX = clientX - cRect.left;
+      if (mouseX < padL - 2 || mouseX > cRect.width - padR + 2) return -1;
+      const pW = cRect.width - padL - padR;
+      return Math.min(Math.max(0, Math.round(((mouseX - padL) / pW) * (canvas._chartData.length - 1))), canvas._chartData.length - 1);
+    };
+    const selectPoint = (idx, trigger) => {
+      if (idx >= 0 && canvas._chartData && canvas._chartData[idx]) {
+        if (canvas._renderFn) canvas._renderFn(idx);
+        jumpToLogEntry(canvas._chartData[idx]);
+      }
+    };
+    canvas.addEventListener('click', e => selectPoint(pointIndexFromClientX(e.clientX), canvas));
+    canvas.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectPoint(canvas._chartData.length - 1, canvas);
+      }
+    });
   }
 
   // Populate the readout with the newest sample before any hover
@@ -1787,7 +1883,7 @@ function drawMultiLineChart(canvasId, data, seriesDefs, unit, opts = {}) {
 }
 
 function readoutHTML(pt, unit, seriesDefs, opts, isLatest) {
-  if (!pt) return '<span class="ro-hint">Hover the graph to read exact values</span>';
+  if (!pt) return '<span class="ro-hint">Hover to read values · click a point to open its Log Viewer entry</span>';
   let html = `<span class="ro-time">${isLatest ? 'Latest' : 'At'} ${escapeHtml(pt.time_label || '—')}</span>`;
   seriesDefs.forEach(sd => {
     const v = pt[sd.key];
@@ -1825,6 +1921,7 @@ let currentLogSearch = '';
 let currentLogFilter = 'all';
 let currentLogMinPower = null;
 let currentLogMaxPower = null;
+let pendingLogExpand = false;
 
 el('btn-refresh-logs').addEventListener('click', () => loadLogRecords(currentLogFile, 1));
 el('btn-page-prev').addEventListener('click', () => { if (currentLogPage > 1) loadLogRecords(currentLogFile, currentLogPage - 1); });
@@ -1929,6 +2026,25 @@ async function loadLogFileList() {
       opt.textContent = `${l.filename} (${l.size_formatted})`;
       sel.appendChild(opt);
     });
+    const jump = pendingLogJump;
+    if (jump) {
+      const datePrefix = `telemetry-${jump.date}`;
+      const matchingLog = logs.find(l => l.filename === jump.filename)
+        || logs.find(l => l.filename.startsWith(datePrefix));
+      currentLogFile = matchingLog ? matchingLog.filename : logs[0].filename;
+      currentLogSearch = jump.search;
+      currentLogFilter = 'all';
+      currentLogMinPower = null;
+      currentLogMaxPower = null;
+      el('log-search-input').value = currentLogSearch;
+      el('log-min-power').value = '';
+      el('log-max-power').value = '';
+      document.querySelectorAll('#log-filter-buttons .filter-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.filter === 'all');
+      });
+      pendingLogExpand = true;
+      pendingLogJump = null;
+    }
     if (!currentLogFile || !logs.some(l => l.filename === currentLogFile)) {
       currentLogFile = logs[0].filename;
     }
@@ -1982,46 +2098,63 @@ async function loadLogRecords(filename, page = 1) {
     bits.push(`high-power rows: <b>${data.high_power_rows || 0}</b>`);
     el('log-filter-summary').innerHTML = bits.join(' &nbsp;·&nbsp; ');
 
-    // Build Table Header
+    // Keep the table compact and readable. Every field remains available in
+    // an inline expansion on the same row.
     const cols = data.columns || [];
-    el('logs-thead').innerHTML = `<tr>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join('')}</tr>`;
+    const summaryCols = ['Timestamp', 'System_Power_W', 'Battery_State', 'CPU_Usage_Pct', 'CPU_Temp_C', 'dGPU_State', 'Power_Flag'];
+    const visibleSummaryCols = summaryCols.filter(c => cols.includes(c));
+    el('logs-thead').innerHTML = `<tr><th aria-label="Expand row"></th>${visibleSummaryCols.map(c => `<th>${escapeHtml(c.replaceAll('_', ' '))}</th>`).join('')}</tr>`;
 
     // Build Table Body
     const rows = data.rows || [];
     if (rows.length === 0) {
+      pendingLogExpand = false;
       tbody.innerHTML = '<tr><td colspan="12" style="text-align:center; padding:2rem; color:var(--text-dim);">No matching log entries found — try clearing filters</td></tr>';
       return;
     }
 
     const threshold = data.high_power_w || HIGH_POWER_W;
-    tbody.innerHTML = rows.map(r => {
+    tbody.innerHTML = rows.map((r, rowIndex) => {
       const power = parseFloat(r.System_Power_W);
       const isHigh = isFinite(power) && power >= threshold;
       const isSpike = isFinite(power) && power > MAX_PLAUSIBLE_W;
 
-      return `<tr class="${isHigh ? 'row-high' : ''}">
-        ${cols.map(c => {
-          let val = r[c] || '';
-          if (c === 'Power_Flag') {
-            return `<td><span class="cell-flag">${escapeHtml(val)}</span></td>`;
-          }
-          if (c === 'System_Power_W' || c === 'CPU_Power_W') {
-            const p = parseFloat(val);
-            if (isFinite(p) && (p >= threshold || p > MAX_PLAUSIBLE_W)) {
-              return `<td class="cell-power-high">${escapeHtml(val)}</td>`;
-            }
-          }
-          if (c === 'Power_Status' || c === 'Battery_State' || c === 'dGPU_State') {
-            const badgeClass = val === 'Normal' || val.includes('Plugged') || val === 'AC' || val === 'Suspended' || val === 'Full' ? 'chip-green' : val.includes('High') ? 'chip-red' : 'chip-yellow';
-            return `<td><span class="chip ${badgeClass}">${escapeHtml(val)}</span></td>`;
-          }
-          if (c === 'High_Power_Processes' && val) {
-            return `<td title="${escapeHtml(val)}" style="max-width:340px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(val)}</td>`;
-          }
-          return `<td>${escapeHtml(val)}</td>`;
-        }).join('')}
-      </tr>`;
+      const summary = visibleSummaryCols.map(c => {
+        const val = r[c] == null ? '' : String(r[c]);
+        if (c === 'Timestamp') return `<td class="log-time-cell"><span class="log-summary-label">Time</span>${escapeHtml(val)}</td>`;
+        if (c === 'System_Power_W') return `<td class="log-power-cell ${isHigh || isSpike ? 'cell-power-high' : ''}"><span class="log-summary-label">Power</span>${escapeHtml(val || '—')} W</td>`;
+        if (c === 'Power_Flag') return `<td><span class="log-summary-label">Flag</span>${val ? '<span class="cell-flag">HIGH</span>' : '—'}</td>`;
+        if (c === 'Battery_State' || c === 'dGPU_State') {
+          const badgeClass = val === 'Normal' || val.includes('Plugged') || val === 'AC' || val === 'Charging' || val === 'Suspended' || val === 'Full' ? 'chip-green' : val.includes('High') ? 'chip-red' : 'chip-yellow';
+          return `<td><span class="log-summary-label">${escapeHtml(c.replaceAll('_', ' '))}</span><span class="chip ${badgeClass}">${escapeHtml(val || '—')}</span></td>`;
+        }
+        return `<td><span class="log-summary-label">${escapeHtml(c.replaceAll('_', ' '))}</span>${escapeHtml(val || '—')}${c.includes('Pct') ? '%' : ''}</td>`;
+      }).join('');
+      const details = cols.map(c => `<div class="log-detail-item"><b>${escapeHtml(c.replaceAll('_', ' '))}</b><span>${escapeHtml(r[c] == null || r[c] === '' ? '—' : r[c])}</span></div>`).join('');
+      return `<tr class="log-summary-row ${isHigh ? 'row-high' : ''}" tabindex="0" aria-expanded="false" data-log-row="${rowIndex}">
+        <td class="log-expand-cell" aria-hidden="true">›</td>${summary}
+      </tr><tr class="log-detail-row" data-log-detail="${rowIndex}"><td colspan="${visibleSummaryCols.length + 1}"><div class="log-detail-grid">${details}</div><div class="log-expand-hint">Click this row to collapse the complete record.</div></td></tr>`;
     }).join('');
+    tbody.querySelectorAll('.log-summary-row').forEach(row => {
+      const toggle = () => {
+        const detail = tbody.querySelector(`[data-log-detail="${row.dataset.logRow}"]`);
+        const open = detail.classList.toggle('open');
+        row.setAttribute('aria-expanded', String(open));
+        row.querySelector('.log-expand-cell').textContent = open ? '⌄' : '›';
+      };
+      row.addEventListener('click', toggle);
+      row.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+      });
+    });
+    if (pendingLogExpand) {
+      const firstRow = tbody.querySelector('.log-summary-row');
+      if (firstRow) {
+        firstRow.click();
+        firstRow.focus();
+        pendingLogExpand = false;
+      }
+    }
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="12" style="color:var(--red); text-align:center; padding:1.5rem;">Error loading log records: ${escapeHtml(err.message)}</td></tr>`;
   }
