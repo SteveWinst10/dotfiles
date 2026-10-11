@@ -222,10 +222,16 @@ def _get_cpu_temp() -> float | None:
     try:
         temps = psutil.sensors_temperatures()
         if "k10temp" in temps:
-            for entry in temps["k10temp"]:
-                if entry.label in ("Tctl", "Tdie"):
-                    return round(entry.current, 1)
-            return round(temps["k10temp"][0].current, 1)
+            # Prefer the hottest CPU package/control reading. Tctl may be
+            # listed before Tdie and either can be the relevant limit sensor.
+            package_readings = [
+                entry.current for entry in temps["k10temp"]
+                if entry.label in ("Tctl", "Tdie") and entry.current > 0
+            ]
+            if package_readings:
+                return round(max(package_readings), 1)
+            if temps["k10temp"]:
+                return round(max(entry.current for entry in temps["k10temp"]), 1)
         for key in ("coretemp", "cpu_thermal"):
             if key in temps and temps[key]:
                 return round(temps[key][0].current, 1)
@@ -268,9 +274,11 @@ def _get_igpu_metrics() -> tuple[float | None, float | None]:
 
 
 def _is_nvidia_awake() -> bool:
+    found_nvidia_gpu = False
     for path in glob.glob("/sys/bus/pci/devices/*/power/runtime_status"):
         try:
-            vendor_path = os.path.join(os.path.dirname(path), "vendor")
+            device_path = os.path.dirname(path)
+            vendor_path = os.path.join(device_path, "vendor")
             if not os.path.exists(vendor_path):
                 continue
             with open(vendor_path) as f:
@@ -282,10 +290,30 @@ def _is_nvidia_awake() -> bool:
                     dev_class = f.read().strip()
                 if not dev_class.startswith("0x03"):
                     continue
+            found_nvidia_gpu = True
             with open(path) as f:
-                return f.read().strip() == "active"
+                if f.read().strip() == "active":
+                    return True
         except Exception:
             pass
+
+    # Runtime PM can report a stale suspended state while a compute client
+    # still has the NVIDIA device open (for example Ollama using CUDA).
+    if found_nvidia_gpu:
+        for proc_path in glob.glob("/proc/[0-9]*"):
+            try:
+                with open(os.path.join(proc_path, "comm")) as f:
+                    if not f.read().strip().startswith("ollama"):
+                        continue
+                for fd_path in glob.glob(os.path.join(proc_path, "fd", "*")):
+                    try:
+                        target = os.readlink(fd_path)
+                        if target.startswith("/dev/nvidia"):
+                            return True
+                    except OSError:
+                        pass
+            except OSError:
+                pass
     return False
 
 
