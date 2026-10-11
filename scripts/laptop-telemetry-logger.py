@@ -284,7 +284,7 @@ def _is_nvidia_awake() -> bool:
             with open(vendor_path) as f:
                 if f.read().strip() != "0x10de":
                     continue
-            class_path = os.path.join(os.path.dirname(path), "class")
+            class_path = os.path.join(device_path, "class")
             if os.path.exists(class_path):
                 with open(class_path) as f:
                     dev_class = f.read().strip()
@@ -297,23 +297,18 @@ def _is_nvidia_awake() -> bool:
         except Exception:
             pass
 
-    # Runtime PM can report a stale suspended state while a compute client
-    # still has the NVIDIA device open (for example Ollama using CUDA).
+    # Runtime PM status can lag behind active work. An open NVIDIA GPU device
+    # node is app-agnostic evidence that a process is using the discrete GPU.
     if found_nvidia_gpu:
         for proc_path in glob.glob("/proc/[0-9]*"):
-            try:
-                with open(os.path.join(proc_path, "comm")) as f:
-                    if not f.read().strip().startswith("ollama"):
-                        continue
-                for fd_path in glob.glob(os.path.join(proc_path, "fd", "*")):
-                    try:
-                        target = os.readlink(fd_path)
-                        if target.startswith("/dev/nvidia"):
-                            return True
-                    except OSError:
-                        pass
-            except OSError:
-                pass
+            for fd_path in glob.glob(os.path.join(proc_path, "fd", "*")):
+                try:
+                    target = os.readlink(fd_path)
+                    device = os.path.basename(target)
+                    if device.startswith("nvidia") and device[6:].isdigit():
+                        return True
+                except OSError:
+                    pass
     return False
 
 
