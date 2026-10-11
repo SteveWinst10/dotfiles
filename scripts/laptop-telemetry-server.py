@@ -14,6 +14,7 @@ import asyncio
 import csv
 import glob
 import json
+import math
 import os
 import sqlite3
 import time
@@ -114,7 +115,11 @@ def _get_live_data() -> dict:
 @app.get("/")
 async def serve_index():
     if HTML_PATH.exists():
-        return FileResponse(HTML_PATH, media_type="text/html")
+        return FileResponse(
+            HTML_PATH,
+            media_type="text/html",
+            headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+        )
     return HTMLResponse("<h1>index.html not found</h1>", status_code=404)
 
 
@@ -470,6 +475,84 @@ async def list_log_filters():
         "high_power_w_ac": HIGH_POWER_W_AC,
         "max_plausible_w": MAX_PLAUSIBLE_W,
     }
+
+
+def _raw_csv_row_timestamp(row: dict) -> int | None:
+    """Return a CSV row's timestamp as an epoch, or None for malformed rows."""
+    raw = row.get("Timestamp")
+    if not raw:
+        return None
+    try:
+        return int(datetime.strptime(str(raw).strip(), "%Y-%m-%d %H:%M:%S").timestamp())
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+@app.get("/api/telemetry/point")
+async def get_telemetry_point(timestamp: float):
+    """Return the complete raw sample nearest to a point selected on a trend chart."""
+    requested = float(timestamp)
+    if not math.isfinite(requested):
+        raise HTTPException(status_code=400, detail="Invalid telemetry timestamp.")
+
+    if DB_PATH.exists():
+        try:
+            conn = sqlite3.connect(DB_PATH, timeout=5)
+            conn.row_factory = sqlite3.Row
+            row = conn.execute(
+                "SELECT * FROM telemetry ORDER BY ABS(timestamp - ?) ASC, timestamp DESC LIMIT 1",
+                (requested,),
+            ).fetchone()
+            conn.close()
+            if row:
+                sample = dict(row)
+                log_date = datetime.fromtimestamp(float(sample["timestamp"])).strftime("%Y-%m-%d")
+                return {
+                    "source": "sqlite",
+                    "requested_timestamp": requested,
+                    "delta_seconds": round(abs(float(sample["timestamp"]) - requested), 3),
+                    "log_date": log_date,
+                    "log_filename": f"telemetry-{log_date}.csv",
+                    "sample": sample,
+                }
+        except Exception as exc:
+            print(f"[telemetry-point] sqlite error: {exc}", flush=True)
+
+    # Trends can fall back to CSV when SQLite is unavailable. Search all
+    # available CSV logs and return the complete nearest row in that case.
+    candidates = []
+    for directory in LOG_DIRS:
+        if directory.exists():
+            candidates.extend(directory.glob("*.csv"))
+    if candidates:
+        closest = None
+        closest_delta = None
+        closest_path = None
+        try:
+            for path in candidates:
+                with open(path, "r", encoding="utf-8", errors="ignore") as handle:
+                    for row in csv.DictReader(handle):
+                        row_timestamp = _raw_csv_row_timestamp(row)
+                        if row_timestamp is None:
+                            continue
+                        delta = abs(row_timestamp - requested)
+                        if closest_delta is None or delta < closest_delta:
+                            closest = row
+                            closest_delta = delta
+                            closest_path = path
+            if closest is not None:
+                return {
+                    "source": "csv",
+                    "requested_timestamp": requested,
+                    "delta_seconds": closest_delta,
+                    "log_date": str(closest.get("Timestamp", ""))[:10],
+                    "log_filename": closest_path.name if closest_path else "",
+                    "sample": closest,
+                }
+        except Exception as exc:
+            print(f"[telemetry-point] csv error: {exc}", flush=True)
+
+    raise HTTPException(status_code=404, detail="No telemetry sample is available for that point.")
 
 
 @app.get("/api/logs/{filename}")
