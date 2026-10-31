@@ -334,7 +334,6 @@ in
         betterLibrary
       ];
       enabledSnippets = with spicePkgs.snippets; [
-        rotatingCoverart
         pointer
       ];
     };
