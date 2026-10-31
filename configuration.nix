@@ -672,6 +672,7 @@ in
     nixd
     lua-language-server
     stylua
+    jdt-language-server
 
     # AI / LLM tools
     opencode
