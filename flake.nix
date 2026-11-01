@@ -41,7 +41,7 @@
           system = "x86_64-linux";
           specialArgs = { inherit inputs; };
           modules = [
-            ./hosts/laptop/default.nix
+            ./configuration.nix
             hyprland.nixosModules.default
             spicetify-nix.nixosModules.default
           ];
