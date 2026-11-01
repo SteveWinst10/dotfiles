@@ -677,7 +677,7 @@ in
     # AI / LLM tools
     opencode
     aichat
-    open-webui
+    # open-webui
     antigravity-ide-fhs
     antigravity-cli
     #n8n
