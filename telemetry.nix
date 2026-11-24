@@ -1,11 +1,18 @@
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
-  telemetryPython = pkgs.python3.withPackages (ps: with ps; [
-    psutil
-    fastapi
-    uvicorn
-  ]);
+  telemetryPython = pkgs.python3.withPackages (
+    ps: with ps; [
+      psutil
+      fastapi
+      uvicorn
+    ]
+  );
 
   # Shared preamble for the user-level helpers. `systemctl --user` needs a session
   # bus; without XDG_RUNTIME_DIR/DBUS_SESSION_BUS_ADDRESS it fails outright, and a
@@ -120,7 +127,6 @@ let
     exit $rc
   '';
 
-
 in
 {
 
@@ -142,20 +148,22 @@ in
     path = [
       pkgs.lm_sensors
       pkgs.pciutils
-    ] ++ lib.optional (config.hardware.nvidia ? package && config.hardware.nvidia.package != null) config.hardware.nvidia.package;
+    ]
+    ++ lib.optional (
+      config.hardware.nvidia ? package && config.hardware.nvidia.package != null
+    ) config.hardware.nvidia.package;
 
     environment = {
       TELEMETRY_LOG_INTERVAL = "5.0";
       TELEMETRY_LOG_DIR = "/var/log/telemetry";
       TELEMETRY_RUN_DIR = "/run/telemetry";
       TELEMETRY_USER_LOG_DIR = "/home/steve/.local/share/telemetry";
-      # System draw at/above which a sample is flagged HIGH and logs its top 5 processes.
-      TELEMETRY_HIGH_POWER_W = "20.0";
-      # Discard readings above this instead of logging them (guards RAPL artefacts).
+      TELEMETRY_HIGH_POWER_W_BATTERY = "20.0";
+      TELEMETRY_HIGH_POWER_W_AC = "60.0";
       TELEMETRY_MAX_PLAUSIBLE_W = "400.0";
       TELEMETRY_TOP_N_HIGH_POWER = "5";
+      TELEMETRY_NVML_ON_BATTERY = "0";
     };
-
     serviceConfig = {
       ExecStart = "${telemetryPython}/bin/python3 ${./scripts/laptop-telemetry-logger.py}";
       Restart = "always";
@@ -180,7 +188,8 @@ in
       TELEMETRY_LOG_DIR = "/var/log/telemetry";
       TELEMETRY_RUN_DIR = "/run/telemetry";
       TELEMETRY_USER_LOG_DIR = "/home/steve/.local/share/telemetry";
-      TELEMETRY_HIGH_POWER_W = "20.0";
+      TELEMETRY_HIGH_POWER_W_BATTERY = "20.0";
+      TELEMETRY_HIGH_POWER_W_AC = "60.0";
       TELEMETRY_MAX_PLAUSIBLE_W = "400.0";
     };
   };
