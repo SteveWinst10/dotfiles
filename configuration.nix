@@ -10,6 +10,19 @@
   ...
 }:
 let
+  batteryLimit = "80"; # change to your preferred value
+  setBatteryLimit = pkgs.writeShellScript "set-battery-limit" ''
+    for b in /sys/class/power_supply/BAT*; do
+      f="$b/charge_control_end_threshold"
+      [ -w "$f" ] && echo ${batteryLimit} > "$f"
+    done
+  '';
+  sleepTargets = [
+    "suspend.target"
+    "hibernate.target"
+    "hybrid-sleep.target"
+    "suspend-then-hibernate.target"
+  ];
   hostSystem = pkgs.stdenv.hostPlatform.system;
   pkgs-wolfssl = import inputs.nixpkgs-wolfssl {
     system = hostSystem;
@@ -25,6 +38,30 @@ let
       wrapProgram $out/bin/ghidra \
         --set JAVA_TOOL_OPTIONS "-Dsun.java2d.uiScale=2"
     '';
+  };
+  minecraft-nvidia = pkgs.makeDesktopItem {
+    name = "minecraft-nvidia";
+    desktopName = "Minecraft (NVIDIA)";
+    comment = "Minecraft via Legacy Launcher on the RTX 4060";
+    icon = "application-x-java";
+    categories = [ "Game" ];
+    terminal = false;
+    path = "/home/steve/Personal";
+    exec = lib.concatStringsSep " " [
+      "env"
+      "SDL_VIDEO_DRIVER=wayland"
+      "__NV_PRIME_RENDER_OFFLOAD=1"
+      "__NV_PRIME_RENDER_OFFLOAD_PROVIDER=NVIDIA-G0"
+      "__GLX_VENDOR_LIBRARY_NAME=nvidia"
+      "__VK_LAYER_NV_optimus=NVIDIA_only"
+      "__EGL_VENDOR_LIBRARY_FILENAMES=/run/opengl-driver/share/glvnd/egl_vendor.d/10_nvidia.json"
+      "_JAVA_AWT_WM_NONREPARENTING=1"
+      "${pkgs.steam-run}/bin/steam-run"
+      "${pkgs.jdk25}/bin/java"
+      "-Djava.awt.headless=false"
+      "-jar"
+      "/home/steve/Personal/LegacyLauncher.jar"
+    ];
   };
 in
 {
@@ -85,6 +122,8 @@ in
 
     kernelParams = [
       "amd_iommu=on"
+      "amd_pstate=active"
+      "pcie_aspm.policy=powersupersave"
       #"vfio-pci.ids=10de:28e0,10de:22be"
       "8250.nr_uarts=0" # unrelated to VFIO; disables unused UART ports
     ];
@@ -122,14 +161,20 @@ in
     interfaces."wlan0" = {
       # only if your NM hotspot runs here
       allowedUDPPorts = [
-        53
-        67
+        53 # DNS (Wi-Fi Hotspot)
+        67 # DHCP (Wi-Fi Hotspot)
+        4242 # Lan Mouse default port
       ];
-      allowedTCPPorts = [ 53 ];
+      allowedTCPPorts = [ 53 ]; # DNS (Wi-Fi Hotspot)
     };
-    allowedUDPPorts = [ 53317 ]; # For mDNS (finding each other)
-    allowedTCPPorts = [ 53317 ];
-
+    allowedUDPPorts = [
+      53317 # For LocalSend
+      25565 # Minecraft java server
+    ];
+    allowedTCPPorts = [
+      53317 # For LocalSend
+      25565 # Minecraft java server
+    ];
     interfaces."tailscale0".allowedTCPPorts = [ 22 ];
   };
 
@@ -145,7 +190,25 @@ in
     #serviceConfig.RemainAfterExit = false;
     wantedBy = lib.mkForce [ ];
   };
+  services.plex = {
+    enable = true;
+    openFirewall = true;
+    user = "steve";
+  };
 
+  systemd.services.plex = {
+    enable = true;
+    wantedBy = lib.mkForce [ ];
+  };
+  systemd.services.plex.serviceConfig = {
+    # Keep your home directory masked/protected from arbitrary reads
+    ProtectHome = lib.mkForce "read-only";
+
+    # Mount only your Movies folder with both READ and WRITE permissions
+    BindPaths = [
+      "/home/steve/Videos/Movies"
+    ];
+  };
   # ── Security, sandboxing & packet analysis tools ───────────────
   programs.wireshark = {
     enable = true;
@@ -246,6 +309,30 @@ in
   # You can disable this if you're only using the Wayland session.
   # Enable the KDE Plasma Desktop Environment.
 
+  #DARK MODE
+  qt = {
+    enable = true;
+    platformTheme = "kde"; # try "kde6" if your nixpkgs offers it
+    style = "breeze";
+  };
+  programs.dconf.profiles.user.databases = [
+    {
+      settings."org/gnome/desktop/interface" = {
+        color-scheme = "prefer-dark";
+        gtk-theme = "Breeze-Dark"; # needs breeze-gtk below
+        icon-theme = "breeze-dark";
+        cursor-theme = "breeze_cursors";
+      };
+    }
+  ];
+
+  # Older GTK3 apps that ignore dconf
+  environment.etc."xdg/gtk-3.0/settings.ini".text = ''
+    [Settings]
+    gtk-application-prefer-dark-theme=1
+    gtk-theme-name=Breeze-Dark
+    gtk-icon-theme-name=breeze-dark
+  '';
   services.greetd = {
     enable = true;
     settings = {
@@ -397,9 +484,15 @@ in
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
+    extraPackages = with pkgs; [
+      libva-vdpau-driver
+    ];
   };
   # Load nvidia driver for Xorg and Wayland
-  services.xserver.videoDrivers = [ "nvidia" ];
+  services.xserver.videoDrivers = [
+    "amdgpu"
+    "nvidia"
+  ];
   hardware.nvidia = {
     open = true;
     # Modesetting is required.
@@ -446,7 +539,8 @@ in
   virtualisation.spiceUSBRedirection.enable = true;
 
   services.udev.extraRules = ''
-    SUBSYSTEM=="kvmfr", OWNER="steve", GROUP="libvirtd", MODE="0660"
+        SUBSYSTEM=="kvmfr", OWNER="steve", GROUP="libvirtd", MODE="0660"
+    SUBSYSTEM=="power_supply", ATTR{type}=="Mains", TAG+="systemd", ENV{SYSTEMD_WANTS}+="battery-limit.service"
   '';
   # ── Containers ──────────────────────────────────────────────────
   virtualisation.containers.enable = true;
@@ -490,6 +584,16 @@ in
   services.asusd.enable = true;
   #services.asusd.enableUserService = true;
 
+  systemd.services.battery-limit = {
+    description = "Re-apply battery charge limit";
+    wantedBy = [ "multi-user.target" ] ++ sleepTargets;
+    after = [ "multi-user.target" ] ++ sleepTargets;
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = setBatteryLimit;
+    };
+  };
+
   # ── Misc services & developer conveniences ─────────────────────
   # Enable the gnome-keyring secrets vault.
   # Will be exposed through DBus to programs willing to store secrets.
@@ -515,9 +619,9 @@ in
   # Enable the OpenSSH daemon.
   services.openssh = {
     enable = true;
-    openFirewall = false;
+    openFirewall = true;
     settings = {
-      PasswordAuthentication = false;
+      PasswordAuthentication = true;
       KbdInteractiveAuthentication = false; # PAM can still accept passwords otherwise
       PermitRootLogin = "no";
       AllowUsers = [ "steve" ]; # optional: stop `hat` from SSHing in
@@ -529,7 +633,7 @@ in
     package = pkgs.ollama-cuda;
     # Bound to all interfaces and reachable via the firewall rule above —
     # confirm this LAN-wide exposure is intended (vs. localhost + Tailscale).
-    host = "0.0.0.0";
+    host = "127.0.0.1";
     port = 11434;
     # Fine-grained power management (D3cold) keeps /dev/nvidia* absent until a
     # CUDA client wakes the GPU.  Setting power/control to "on" for the duration
@@ -571,12 +675,12 @@ in
     neovim
     wget
     micro
-    notepad-next
     git
     gh
 
     # Shell & CLI utilities
     duf
+    lsof
     fd
     tree-sitter
     ncdu
@@ -615,7 +719,6 @@ in
     sniffnet
     kubernetes
     localsend
-    gnome-network-displays
     scrcpy
     proton-vpn
     proton-vpn-cli
@@ -639,12 +742,6 @@ in
     ghidra-hidpi
     ida-free
     cisco-packet-tracer_9
-    foundry
-    kicad
-    platformio
-    platformio-core
-    avrdude
-    android-tools
 
     # Development toolchains & IDEs
     gcc
@@ -658,13 +755,11 @@ in
     jetbrains.webstorm
     jetbrains.pycharm
     jetbrains.idea
-    jetbrains.datagrip
     nodejs_24
     playwright
     playwright-test
     playwright-mcp
     cargo
-    oracle-instantclient
     uv
     jdk25
 
@@ -676,13 +771,12 @@ in
 
     # AI / LLM tools
     opencode
-    aichat
-    # open-webui
+    open-webui
+    lmstudio
     antigravity-ide-fhs
     antigravity-cli
     #n8n
     codex
-    tesseract
     # Wayland / niri desktop ecosystem
     xwayland-satellite
     noctalia
@@ -739,7 +833,7 @@ in
     protontricks
     protonplus
     wine-wayland
-
+    minecraft-nvidia
     # Browsers
     chromium
     firefox-devedition
@@ -754,10 +848,22 @@ in
     podman-compose
   ];
   environment.sessionVariables = {
-    # Force Firefox to use native Wayland instead of XWayland
+    # Force Wayland for Firefox, Floorp, and Electron apps under Niri
+    MOZ_ENABLE_WAYLAND = "1";
+    NIXOS_OZONE_WL = "1";
 
-    # Force Firefox to use your integrated AMD GPU (Mesa driver)
-    # instead of trying to invoke NVIDIA EGL buffers under Niri
+    # Lock VA-API (Firefox RDD Process), VDPAU, and Mesa EGL to AMD Radeon 890M
+    LIBVA_DRIVER_NAME = "radeonsi";
+    VDPAU_DRIVER = "radeonsi";
+    __GLX_VENDOR_LIBRARY_NAME = "mesa";
+    __EGL_VENDOR_LIBRARY_FILENAMES = "${pkgs.mesa}/share/glvnd/egl_vendor.d/50_mesa.json";
+
+    # Restrict default Vulkan enumeration to AMD RADV so browsers/launchers
+    # do not wake /dev/nvidia0 on startup (override per-game with nvidia-offload)
+    VK_DRIVER_FILES = "${pkgs.mesa}/share/vulkan/icd.d/radeon_icd.x86_64.json:${
+      pkgs.mesa.i686Linux.drivers or pkgs.pkgsi686Linux.mesa
+    }/share/vulkan/icd.d/radeon_icd.i686.json";
+
   };
 
   # This value determines the NixOS release from which the default
