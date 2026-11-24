@@ -12,7 +12,7 @@
     };
 
     hyprland = {
-      url = "github:hyprwm/Hyprland/v0.51.0?submodules=1";
+      url = "github:hyprwm/Hyprland/v0.51.0";
       inputs.aquamarine.follows = "aquamarine";
     };
 
@@ -29,7 +29,7 @@
       self,
       nixpkgs,
       hyprland,
-      spicetify-nix, 
+      spicetify-nix,
       ...
     }@inputs:
     let
