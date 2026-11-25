@@ -781,11 +781,6 @@ in
     xwayland-satellite
     noctalia
     mango
-    hypridle
-    hyprpaper
-    hyprlock
-    hyprcursor
-    waybar
     ashell
     wofi
     swaybg
@@ -796,21 +791,11 @@ in
     wev
     grim
     slurp
-    #(hyprland.overrideAttrs (oldAttrs: {version = "0.49"; src = fetchurl {
-    #    url = "https://github.com/hyprwm/Hyprland/releases/download/v0.49.0/source-v0.49.0.tar.gz";
-    #    hash = "sha256-/Zb7BDz+2gmhq5petp/uVVYkdcDGpB952tK8xlLcVzA="; };} ))
-    #(aquamarine.overrideAttrs (oldAttrs: {version = "0.9.1-1"; src = fetchurl {
-    #	url = "https://github.com/hyprwm/aquamarine/archive/refs/tags/v0.9.1.tar.gz";
-    #	hash = "sha256-1DFmY9+Mf0g0uujE/ptn5TpOxXbHE7w9gps5QUntrRQ=";
-    #};}))
-
     # Media & audio
     vlc
     mpv
     ffmpeg
     obs-studio
-    jellyfin
-    jellyfin-tui
     easyeffects
     deepfilternet # Contains the LADSPA noise cancellation plugin
     alsa-tools

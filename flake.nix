@@ -11,13 +11,6 @@
       ref = "nixos-24.11";
     };
 
-    hyprland = {
-      url = "github:hyprwm/Hyprland/v0.51.0";
-      inputs.aquamarine.follows = "aquamarine";
-    };
-
-    aquamarine.url = "github:hyprwm/aquamarine/v0.9.1";
-
     spicetify-nix = {
       url = "github:Gerg-L/spicetify-nix";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -28,7 +21,6 @@
     {
       self,
       nixpkgs,
-      hyprland,
       spicetify-nix,
       ...
     }@inputs:
@@ -42,7 +34,6 @@
           specialArgs = { inherit inputs; };
           modules = [
             ./configuration.nix
-            hyprland.nixosModules.default
             spicetify-nix.nixosModules.default
           ];
         };
